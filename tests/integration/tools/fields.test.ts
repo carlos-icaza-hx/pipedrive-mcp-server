@@ -1,0 +1,192 @@
+/**
+ * Integration tests for tools/fields.ts
+ */
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { setupValidEnv } from '../../helpers/mockEnv.js';
+import {
+  mockApiSuccess,
+  mockApiError,
+} from '../../helpers/mockFetch.js';
+import { createFieldFixture } from '../../helpers/fixtures.js';
+
+async function getFieldsTools() {
+  return import('../../../src/tools/fields.js');
+}
+
+describe('fields tools', () => {
+  beforeEach(() => {
+    setupValidEnv();
+    vi.unstubAllGlobals();
+  });
+
+  describe('listOrganizationFields', () => {
+    it('should return list of organization fields', async () => {
+      const fields = [
+        createFieldFixture('name', 'Name', 'varchar'),
+        createFieldFixture('address', 'Address', 'address'),
+      ];
+      mockApiSuccess(fields);
+      const { listOrganizationFields } = await getFieldsTools();
+
+      const result = await listOrganizationFields({});
+
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.summary).toContain('2');
+      expect(parsed.summary).toContain('field');
+      expect(parsed.data).toHaveLength(2);
+    });
+
+    it('should use v1 API', async () => {
+      const mockFn = mockApiSuccess([]);
+      const { listOrganizationFields } = await getFieldsTools();
+
+      await listOrganizationFields({});
+
+      const [url] = mockFn.mock.calls[0];
+      expect(url).toContain('/v1/organizationFields');
+    });
+
+    it('should pass pagination parameters', async () => {
+      const mockFn = mockApiSuccess([]);
+      const { listOrganizationFields } = await getFieldsTools();
+
+      await listOrganizationFields({ start: 50, limit: 100 });
+
+      const [url] = mockFn.mock.calls[0];
+      expect(url).toContain('start=50');
+      expect(url).toContain('limit=100');
+    });
+  });
+
+  describe('listDealFields', () => {
+    it('should return list of deal fields', async () => {
+      const fields = [
+        createFieldFixture('title', 'Title', 'varchar'),
+        createFieldFixture('value', 'Value', 'monetary'),
+        createFieldFixture('status', 'Status', 'enum'),
+      ];
+      mockApiSuccess(fields);
+      const { listDealFields } = await getFieldsTools();
+
+      const result = await listDealFields({});
+
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.summary).toContain('3');
+      expect(parsed.summary).toContain('field');
+    });
+
+    it('should use v1 API', async () => {
+      const mockFn = mockApiSuccess([]);
+      const { listDealFields } = await getFieldsTools();
+
+      await listDealFields({});
+
+      const [url] = mockFn.mock.calls[0];
+      expect(url).toContain('/v1/dealFields');
+    });
+  });
+
+  describe('listPersonFields', () => {
+    it('should return list of person fields', async () => {
+      const fields = [
+        createFieldFixture('name', 'Name', 'varchar'),
+        createFieldFixture('email', 'Email', 'email'),
+        createFieldFixture('phone', 'Phone', 'phone'),
+      ];
+      mockApiSuccess(fields);
+      const { listPersonFields } = await getFieldsTools();
+
+      const result = await listPersonFields({});
+
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.summary).toContain('3');
+      expect(parsed.summary).toContain('field');
+    });
+
+    it('should use v1 API', async () => {
+      const mockFn = mockApiSuccess([]);
+      const { listPersonFields } = await getFieldsTools();
+
+      await listPersonFields({});
+
+      const [url] = mockFn.mock.calls[0];
+      expect(url).toContain('/v1/personFields');
+    });
+  });
+
+  describe('getField', () => {
+    it('should return single deal field from list', async () => {
+      // getField fetches all fields and finds by key
+      const fields = [
+        { ...createFieldFixture('title', 'Title', 'varchar'), key: 'title' },
+        { ...createFieldFixture('value', 'Deal Value', 'monetary'), key: 'value' },
+      ];
+      mockApiSuccess(fields);
+      const { getField } = await getFieldsTools();
+
+      const result = await getField({ entity_type: 'deal', key: 'value' });
+
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.summary).toContain('value');
+      expect(parsed.data.name).toBe('Deal Value');
+    });
+
+    it('should return single person field from list', async () => {
+      const fields = [
+        { ...createFieldFixture('name', 'Name', 'varchar'), key: 'name' },
+        { ...createFieldFixture('email', 'Email', 'email'), key: 'email' },
+      ];
+      mockApiSuccess(fields);
+      const { getField } = await getFieldsTools();
+
+      const result = await getField({ entity_type: 'person', key: 'email' });
+
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.summary).toContain('email');
+    });
+
+    it('should return single organization field from list', async () => {
+      const fields = [
+        { ...createFieldFixture('name', 'Organization Name', 'varchar'), key: 'name' },
+      ];
+      mockApiSuccess(fields);
+      const { getField } = await getFieldsTools();
+
+      const result = await getField({ entity_type: 'organization', key: 'name' });
+
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.summary).toContain('name');
+    });
+
+    it('should use correct v1 API endpoint for each entity type', async () => {
+      const { getField } = await getFieldsTools();
+
+      // Test deal fields endpoint
+      let mockFn = mockApiSuccess([{ key: 'mykey', name: 'Name', field_type: 'varchar' }]);
+      await getField({ entity_type: 'deal', key: 'mykey' });
+      expect(mockFn.mock.calls[0][0]).toContain('/v1/dealFields');
+
+      // Test person fields endpoint
+      vi.unstubAllGlobals();
+      mockFn = mockApiSuccess([{ key: 'mykey', name: 'Name', field_type: 'varchar' }]);
+      await getField({ entity_type: 'person', key: 'mykey' });
+      expect(mockFn.mock.calls[0][0]).toContain('/v1/personFields');
+
+      // Test organization fields endpoint
+      vi.unstubAllGlobals();
+      mockFn = mockApiSuccess([{ key: 'mykey', name: 'Name', field_type: 'varchar' }]);
+      await getField({ entity_type: 'organization', key: 'mykey' });
+      expect(mockFn.mock.calls[0][0]).toContain('/v1/organizationFields');
+    });
+
+    it('should handle field not found in list', async () => {
+      mockApiSuccess([{ key: 'other', name: 'Other Field', field_type: 'varchar' }]);
+      const { getField } = await getFieldsTools();
+
+      const result = await getField({ entity_type: 'deal', key: 'nonexistent' });
+
+      expect(result.content[0].text).toContain('not found');
+    });
+  });
+});

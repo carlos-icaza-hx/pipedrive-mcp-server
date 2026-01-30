@@ -1,0 +1,218 @@
+/**
+ * Tests for schemas/organizations.ts
+ * Also includes test for visible_to type inconsistency bug
+ */
+
+import { describe, it, expect } from 'vitest';
+import {
+  ListOrganizationsSchema,
+  GetOrganizationSchema,
+  CreateOrganizationSchema,
+  UpdateOrganizationSchema,
+  SearchOrganizationsSchema,
+  DeleteOrganizationSchema,
+} from '../../../src/schemas/organizations.js';
+
+describe('organizations schemas', () => {
+  describe('ListOrganizationsSchema', () => {
+    it('should accept minimal params', () => {
+      const result = ListOrganizationsSchema.parse({});
+      expect(result.limit).toBe(50);
+      expect(result.sort_direction).toBe('desc');
+    });
+
+    it('should accept all filter parameters', () => {
+      const params = {
+        cursor: 'cursor123',
+        limit: 100,
+        filter_id: 1,
+        ids: '1,2,3',
+        owner_id: 5,
+        first_char: 'A',
+        updated_since: '2024-01-01T00:00:00Z',
+        updated_until: '2024-12-31T23:59:59Z',
+        sort_by: 'update_time',
+        sort_direction: 'asc',
+        include_fields: 'notes',
+        custom_fields: 'all',
+      };
+
+      const result = ListOrganizationsSchema.parse(params);
+      expect(result.first_char).toBe('A');
+      expect(result.owner_id).toBe(5);
+    });
+
+    it('should validate first_char is single character', () => {
+      expect(() => ListOrganizationsSchema.parse({ first_char: 'AB' })).toThrow();
+    });
+
+    it('should accept all valid sort_by values', () => {
+      ['id', 'update_time', 'add_time'].forEach((sort_by) => {
+        const result = ListOrganizationsSchema.parse({ sort_by });
+        expect(result.sort_by).toBe(sort_by);
+      });
+    });
+
+    it('should reject invalid sort_by', () => {
+      expect(() => ListOrganizationsSchema.parse({ sort_by: 'name' })).toThrow();
+    });
+  });
+
+  describe('GetOrganizationSchema', () => {
+    it('should require id', () => {
+      expect(() => GetOrganizationSchema.parse({})).toThrow();
+    });
+
+    it('should accept valid id with optional fields', () => {
+      const result = GetOrganizationSchema.parse({
+        id: 123,
+        include_fields: 'followers',
+        custom_fields: 'field_abc,field_xyz',
+      });
+      expect(result.id).toBe(123);
+      expect(result.include_fields).toBe('followers');
+    });
+  });
+
+  describe('CreateOrganizationSchema', () => {
+    it('should require name', () => {
+      expect(() => CreateOrganizationSchema.parse({})).toThrow();
+    });
+
+    it('should accept minimal params with just name', () => {
+      const result = CreateOrganizationSchema.parse({ name: 'Acme Corp' });
+      expect(result.name).toBe('Acme Corp');
+    });
+
+    it('should accept all optional fields', () => {
+      const params = {
+        name: 'Enterprise Inc',
+        owner_id: 1,
+        visible_to: 7,
+        address: '123 Business Ave, Suite 500',
+        label_ids: [1, 2, 3],
+        add_time: '2024-01-01T00:00:00Z',
+        custom_fields: { industry: 'Tech' },
+      };
+
+      const result = CreateOrganizationSchema.parse(params);
+      expect(result.name).toBe('Enterprise Inc');
+      expect(result.address).toBe('123 Business Ave, Suite 500');
+      expect(result.visible_to).toBe(7);
+    });
+
+    it('should reject empty name', () => {
+      expect(() => CreateOrganizationSchema.parse({ name: '' })).toThrow();
+    });
+
+    it('should reject name over 255 characters', () => {
+      expect(() => CreateOrganizationSchema.parse({ name: 'a'.repeat(256) })).toThrow();
+    });
+
+    it('should validate visible_to as number', () => {
+      [1, 3, 5, 7].forEach((visible_to) => {
+        const result = CreateOrganizationSchema.parse({ name: 'Test', visible_to });
+        expect(result.visible_to).toBe(visible_to);
+      });
+    });
+
+    it('should reject invalid visible_to values', () => {
+      [2, 4, 6, 8].forEach((visible_to) => {
+        expect(() => CreateOrganizationSchema.parse({ name: 'Test', visible_to })).toThrow();
+      });
+    });
+  });
+
+  describe('UpdateOrganizationSchema', () => {
+    it('should require id', () => {
+      expect(() => UpdateOrganizationSchema.parse({})).toThrow();
+    });
+
+    it('should accept id with no updates', () => {
+      const result = UpdateOrganizationSchema.parse({ id: 123 });
+      expect(result.id).toBe(123);
+    });
+
+    it('should accept all updatable fields', () => {
+      const params = {
+        id: 123,
+        name: 'Updated Corp',
+        owner_id: 2,
+        visible_to: '5', // Note: string in UpdateOrganizationSchema
+        address: 'New Address',
+        label_ids: [4, 5],
+        custom_fields: { key: 'new_value' },
+      };
+
+      const result = UpdateOrganizationSchema.parse(params);
+      expect(result.name).toBe('Updated Corp');
+      expect(result.visible_to).toBe('5');
+    });
+
+    /**
+     * REGRESSION TEST: visible_to type inconsistency (same as persons.ts)
+     */
+    describe('visible_to type inconsistency (known bug)', () => {
+      it('CreateOrganizationSchema accepts visible_to as number', () => {
+        const result = CreateOrganizationSchema.parse({ name: 'Test', visible_to: 3 });
+        expect(typeof result.visible_to).toBe('number');
+      });
+
+      it('UpdateOrganizationSchema accepts visible_to as string', () => {
+        const result = UpdateOrganizationSchema.parse({ id: 1, visible_to: '3' });
+        expect(typeof result.visible_to).toBe('string');
+      });
+    });
+
+    it('should validate visible_to string enum in update', () => {
+      ['1', '3', '5', '7'].forEach((visible_to) => {
+        const result = UpdateOrganizationSchema.parse({ id: 1, visible_to });
+        expect(result.visible_to).toBe(visible_to);
+      });
+    });
+
+    it('should reject invalid visible_to string', () => {
+      expect(() => UpdateOrganizationSchema.parse({ id: 1, visible_to: '2' })).toThrow();
+    });
+  });
+
+  describe('SearchOrganizationsSchema', () => {
+    it('should require term', () => {
+      expect(() => SearchOrganizationsSchema.parse({})).toThrow();
+    });
+
+    it('should accept minimal params with just term', () => {
+      const result = SearchOrganizationsSchema.parse({ term: 'acme' });
+      expect(result.term).toBe('acme');
+      expect(result.exact_match).toBe(false);
+      expect(result.limit).toBe(50);
+    });
+
+    it('should accept all optional filters', () => {
+      const params = {
+        term: 'enterprise',
+        exact_match: true,
+        limit: 25,
+      };
+
+      const result = SearchOrganizationsSchema.parse(params);
+      expect(result.exact_match).toBe(true);
+      expect(result.limit).toBe(25);
+    });
+
+    it('should reject empty term', () => {
+      expect(() => SearchOrganizationsSchema.parse({ term: '' })).toThrow();
+    });
+  });
+
+  describe('DeleteOrganizationSchema', () => {
+    it('should require id', () => {
+      expect(() => DeleteOrganizationSchema.parse({})).toThrow();
+    });
+
+    it('should accept valid id', () => {
+      const result = DeleteOrganizationSchema.parse({ id: 789 });
+      expect(result.id).toBe(789);
+    });
+  });
+});

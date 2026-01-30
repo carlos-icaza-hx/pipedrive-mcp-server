@@ -1,0 +1,90 @@
+/**
+ * Tests for config.ts
+ */
+
+import { describe, it, expect, beforeEach } from 'vitest';
+import { getConfig, validateConfig } from '../../src/config.js';
+import { VALID_API_KEY, testApiKeys, clearApiKey, setupEnvWithApiKey } from '../helpers/mockEnv.js';
+
+describe('config', () => {
+  beforeEach(() => {
+    clearApiKey();
+  });
+
+  describe('getConfig', () => {
+    it('should return valid config when API key is correct length', () => {
+      setupEnvWithApiKey(VALID_API_KEY);
+
+      const config = getConfig();
+
+      expect(config.apiKey).toBe(VALID_API_KEY);
+      expect(config.baseUrlV1).toBe('https://api.pipedrive.com/v1');
+      expect(config.baseUrlV2).toBe('https://api.pipedrive.com/api/v2');
+    });
+
+    it('should throw error when API key is missing', () => {
+      clearApiKey();
+
+      expect(() => getConfig()).toThrow('PIPEDRIVE_API_KEY environment variable is required');
+    });
+
+    it('should throw error when API key is too short', () => {
+      setupEnvWithApiKey(testApiKeys.tooShort);
+
+      expect(() => getConfig()).toThrow(/expected 40 characters, got 6/);
+    });
+
+    it('should throw error when API key is too long', () => {
+      setupEnvWithApiKey(testApiKeys.tooLong);
+
+      expect(() => getConfig()).toThrow(/expected 40 characters, got 50/);
+    });
+
+    it('should throw error when API key is empty', () => {
+      setupEnvWithApiKey(testApiKeys.empty);
+
+      expect(() => getConfig()).toThrow('PIPEDRIVE_API_KEY environment variable is required');
+    });
+
+    it('should include helpful suggestion in error message', () => {
+      clearApiKey();
+
+      expect(() => getConfig()).toThrow(/Personal preferences > API/);
+    });
+  });
+
+  describe('validateConfig', () => {
+    it('should return valid: true when config is correct', () => {
+      setupEnvWithApiKey(VALID_API_KEY);
+
+      const result = validateConfig();
+
+      expect(result.valid).toBe(true);
+      expect(result.error).toBeUndefined();
+    });
+
+    it('should return valid: false with error message when API key is missing', () => {
+      clearApiKey();
+
+      const result = validateConfig();
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('PIPEDRIVE_API_KEY');
+    });
+
+    it('should return valid: false with error message when API key is wrong length', () => {
+      setupEnvWithApiKey(testApiKeys.tooShort);
+
+      const result = validateConfig();
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('expected 40 characters');
+    });
+
+    it('should not throw errors, only return validation result', () => {
+      clearApiKey();
+
+      expect(() => validateConfig()).not.toThrow();
+    });
+  });
+});

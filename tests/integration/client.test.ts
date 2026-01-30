@@ -1,0 +1,306 @@
+/**
+ * Integration tests for client.ts
+ */
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { PipedriveClient, getClient } from '../../src/client.js';
+import { setupValidEnv, clearApiKey, VALID_API_KEY } from '../helpers/mockEnv.js';
+import {
+  mockFetch,
+  mockFetchNetworkError,
+  mockApiSuccess,
+  mockApiError,
+  fixtures,
+  paginationFixtures,
+} from '../helpers/mockFetch.js';
+
+describe('PipedriveClient', () => {
+  beforeEach(() => {
+    setupValidEnv();
+    vi.unstubAllGlobals();
+  });
+
+  describe('initialization', () => {
+    it('should defer config loading until first use', () => {
+      clearApiKey();
+      // Client creation should not throw
+      const client = new PipedriveClient();
+      expect(client).toBeDefined();
+    });
+
+    it('should throw error on first use if API key is missing', async () => {
+      clearApiKey();
+      const client = new PipedriveClient();
+      mockFetch({ data: [] });
+
+      await expect(client.get('/deals')).rejects.toThrow('PIPEDRIVE_API_KEY');
+    });
+  });
+
+  describe('GET requests', () => {
+    it('should make GET request with correct URL and headers', async () => {
+      const mockFn = mockApiSuccess([fixtures.deal]);
+      const client = new PipedriveClient();
+
+      await client.get('/deals');
+
+      expect(mockFn).toHaveBeenCalledTimes(1);
+      const [url, options] = mockFn.mock.calls[0];
+      expect(url).toContain('/api/v2/deals');
+      expect(url).toContain(`api_token=${VALID_API_KEY}`);
+      expect(options.method).toBe('GET');
+      expect(options.headers.Accept).toBe('application/json');
+    });
+
+    it('should include query parameters', async () => {
+      const mockFn = mockApiSuccess([]);
+      const client = new PipedriveClient();
+      const params = new URLSearchParams();
+      params.set('status', 'open');
+      params.set('limit', '50');
+
+      await client.get('/deals', params);
+
+      const [url] = mockFn.mock.calls[0];
+      expect(url).toContain('status=open');
+      expect(url).toContain('limit=50');
+    });
+
+    it('should use v1 API when specified', async () => {
+      const mockFn = mockApiSuccess([]);
+      const client = new PipedriveClient();
+
+      await client.get('/users', undefined, 'v1');
+
+      const [url] = mockFn.mock.calls[0];
+      expect(url).toContain('/v1/users');
+      expect(url).not.toContain('/api/v2');
+    });
+
+    it('should use v2 API by default', async () => {
+      const mockFn = mockApiSuccess([]);
+      const client = new PipedriveClient();
+
+      await client.get('/deals');
+
+      const [url] = mockFn.mock.calls[0];
+      expect(url).toContain('/api/v2/deals');
+    });
+
+    it('should return data on success', async () => {
+      mockApiSuccess([fixtures.deal, fixtures.deal]);
+      const client = new PipedriveClient();
+
+      const response = await client.get<typeof fixtures.deal[]>('/deals');
+
+      expect(response.success).toBe(true);
+      expect(response.data).toHaveLength(2);
+    });
+
+    it('should return pagination data for v2', async () => {
+      mockFetch({
+        data: [fixtures.deal],
+        additional_data: paginationFixtures.v2WithMore,
+      });
+      const client = new PipedriveClient();
+
+      const response = await client.get('/deals');
+
+      expect(response.success).toBe(true);
+      expect(response.additional_data?.next_cursor).toBe('cursor_abc123');
+    });
+  });
+
+  describe('POST requests', () => {
+    it('should make POST request with JSON body', async () => {
+      const mockFn = mockApiSuccess(fixtures.deal);
+      const client = new PipedriveClient();
+
+      await client.post('/deals', { title: 'New Deal', value: 10000 });
+
+      const [url, options] = mockFn.mock.calls[0];
+      expect(options.method).toBe('POST');
+      expect(options.headers['Content-Type']).toBe('application/json');
+      expect(JSON.parse(options.body)).toEqual({ title: 'New Deal', value: 10000 });
+    });
+
+    it('should return created data', async () => {
+      mockApiSuccess(fixtures.deal);
+      const client = new PipedriveClient();
+
+      const response = await client.post('/deals', { title: 'Test' });
+
+      expect(response.success).toBe(true);
+      expect(response.data).toBeDefined();
+    });
+  });
+
+  describe('PATCH requests', () => {
+    it('should make PATCH request', async () => {
+      const mockFn = mockApiSuccess(fixtures.deal);
+      const client = new PipedriveClient();
+
+      await client.patch('/deals/1', { title: 'Updated' });
+
+      const [, options] = mockFn.mock.calls[0];
+      expect(options.method).toBe('PATCH');
+    });
+  });
+
+  describe('PUT requests', () => {
+    it('should make PUT request', async () => {
+      const mockFn = mockApiSuccess(fixtures.deal);
+      const client = new PipedriveClient();
+
+      await client.put('/deals/1', { title: 'Replaced' });
+
+      const [, options] = mockFn.mock.calls[0];
+      expect(options.method).toBe('PUT');
+    });
+  });
+
+  describe('DELETE requests', () => {
+    it('should make DELETE request', async () => {
+      const mockFn = mockApiSuccess({ id: 1 });
+      const client = new PipedriveClient();
+
+      await client.delete('/deals/1');
+
+      const [, options] = mockFn.mock.calls[0];
+      expect(options.method).toBe('DELETE');
+      expect(options.body).toBeUndefined();
+    });
+
+    it('should return deleted data', async () => {
+      mockApiSuccess({ id: 1 });
+      const client = new PipedriveClient();
+
+      const response = await client.delete('/deals/1');
+
+      expect(response.success).toBe(true);
+      expect(response.data).toEqual({ id: 1 });
+    });
+  });
+
+  describe('error handling', () => {
+    it('should handle 400 Bad Request', async () => {
+      mockApiError(400, 'Invalid parameter value');
+      const client = new PipedriveClient();
+
+      const response = await client.post('/deals', {});
+
+      expect(response.success).toBe(false);
+      expect(response.error?.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('should handle 401 Unauthorized', async () => {
+      mockApiError(401, 'Invalid API key');
+      const client = new PipedriveClient();
+
+      const response = await client.get('/deals');
+
+      expect(response.success).toBe(false);
+      expect(response.error?.error.code).toBe('INVALID_API_KEY');
+    });
+
+    it('should handle 403 Forbidden', async () => {
+      mockApiError(403, 'Access denied');
+      const client = new PipedriveClient();
+
+      const response = await client.get('/deals/1');
+
+      expect(response.success).toBe(false);
+      expect(response.error?.error.code).toBe('PERMISSION_DENIED');
+    });
+
+    it('should handle 404 Not Found', async () => {
+      mockApiError(404, 'Deal not found');
+      const client = new PipedriveClient();
+
+      const response = await client.get('/deals/99999');
+
+      expect(response.success).toBe(false);
+      expect(response.error?.error.code).toBe('NOT_FOUND');
+    });
+
+    it('should handle 429 Rate Limited', async () => {
+      mockApiError(429, 'Too many requests');
+      const client = new PipedriveClient();
+
+      const response = await client.get('/deals');
+
+      expect(response.success).toBe(false);
+      expect(response.error?.error.code).toBe('RATE_LIMITED');
+    });
+
+    it('should handle 500 Server Error', async () => {
+      mockApiError(500, 'Internal server error');
+      const client = new PipedriveClient();
+
+      const response = await client.get('/deals');
+
+      expect(response.success).toBe(false);
+      expect(response.error?.error.code).toBe('API_ERROR');
+    });
+
+    it('should handle network errors', async () => {
+      mockFetchNetworkError('Connection refused');
+      const client = new PipedriveClient();
+
+      const response = await client.get('/deals');
+
+      expect(response.success).toBe(false);
+      expect(response.error?.error.code).toBe('NETWORK_ERROR');
+      expect(response.error?.error.message).toContain('Connection refused');
+    });
+  });
+
+  describe('testConnection', () => {
+    it('should return success on valid connection', async () => {
+      mockApiSuccess({ id: 1, name: 'Test User' });
+      const client = new PipedriveClient();
+
+      const result = await client.testConnection();
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('Successfully connected');
+    });
+
+    it('should return failure on API error', async () => {
+      mockApiError(401, 'Invalid API key');
+      const client = new PipedriveClient();
+
+      const result = await client.testConnection();
+
+      expect(result.success).toBe(false);
+    });
+
+    it('should use v1 API for connection test', async () => {
+      const mockFn = mockApiSuccess({ id: 1 });
+      const client = new PipedriveClient();
+
+      await client.testConnection();
+
+      const [url] = mockFn.mock.calls[0];
+      expect(url).toContain('/v1/users/me');
+    });
+  });
+});
+
+describe('getClient', () => {
+  beforeEach(() => {
+    setupValidEnv();
+    vi.unstubAllGlobals();
+  });
+
+  it('should return a PipedriveClient instance', () => {
+    const client = getClient();
+    expect(client).toBeInstanceOf(PipedriveClient);
+  });
+
+  it('should return the same instance on multiple calls (singleton)', () => {
+    const client1 = getClient();
+    const client2 = getClient();
+    expect(client1).toBe(client2);
+  });
+});
