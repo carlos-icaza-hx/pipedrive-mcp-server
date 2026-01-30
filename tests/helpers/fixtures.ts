@@ -132,3 +132,14 @@ export function createMailMessageFixture(id: number = 1) {
     add_time: '2024-01-01T00:00:00Z',
   };
 }
+
+/**
+ * Creates a list of notes for testing
+ */
+export function createNotesFixture(count: number = 3) {
+  return Array.from({ length: count }, (_, i) => ({
+    ...mockFixtures.note,
+    id: i + 1,
+    content: `<p>Test note ${i + 1}</p>`,
+  }));
+}

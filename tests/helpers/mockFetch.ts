@@ -191,6 +191,19 @@ export const fixtures = {
     order_nr: 1,
     active_flag: true,
   },
+  note: {
+    id: 1,
+    content: '<p>Test note content</p>',
+    deal_id: 1,
+    person_id: 1,
+    org_id: 1,
+    user_id: 1,
+    pinned_to_deal_flag: false,
+    pinned_to_person_flag: false,
+    pinned_to_organization_flag: false,
+    add_time: '2024-01-01 00:00:00',
+    update_time: '2024-01-01 00:00:00',
+  },
 };
 
 /**
