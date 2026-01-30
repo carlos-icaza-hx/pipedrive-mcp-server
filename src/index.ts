@@ -13,6 +13,8 @@
  *   PIPEDRIVE_API_KEY - Your Pipedrive API key (required)
  */
 
+import "dotenv/config";
+
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
