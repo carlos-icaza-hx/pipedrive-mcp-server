@@ -30,7 +30,13 @@ export async function listPipelines(_params: ListPipelinesParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error!),
+        text: formatErrorForMcp(response.error || {
+          error: {
+            code: "API_ERROR",
+            message: "Unknown API error",
+            suggestion: "Check your API key and network connection"
+          }
+        }),
       }],
     };
   }
@@ -70,7 +76,13 @@ export async function listStages(params: ListStagesParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error!),
+        text: formatErrorForMcp(response.error || {
+          error: {
+            code: "API_ERROR",
+            message: "Unknown API error",
+            suggestion: "Check your API key and network connection"
+          }
+        }),
       }],
     };
   }
@@ -108,7 +120,13 @@ export async function getStage(params: GetStageParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error!),
+        text: formatErrorForMcp(response.error || {
+          error: {
+            code: "API_ERROR",
+            message: "Unknown API error",
+            suggestion: "Check your API key and network connection"
+          }
+        }),
       }],
     };
   }

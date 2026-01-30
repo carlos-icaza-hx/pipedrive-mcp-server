@@ -83,6 +83,18 @@ describe('notes tools', () => {
       const [url] = mockFn.mock.calls[0];
       expect(url).toContain('/v1/notes');
     });
+
+    it('should handle response with no data gracefully', async () => {
+      // Simulate API returning success but with null/undefined data
+      mockFetch({ data: null });
+      const { listNotes } = await getNotesTools();
+
+      const result = await listNotes({ deal_id: 277 });
+
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.data).toEqual([]);
+      expect(parsed.summary).toContain('0 note');
+    });
   });
 
   describe('getNote', () => {
@@ -104,6 +116,20 @@ describe('notes tools', () => {
       const result = await getNote({ id: 99999 });
 
       expect(result.content[0].text).toContain('NOT_FOUND');
+    });
+
+    it('should handle missing data with fallback error', async () => {
+      // Simulate API returning failure with no error object
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true, data: null }),
+      }));
+      const { getNote } = await getNotesTools();
+
+      const result = await getNote({ id: 1 });
+
+      expect(result.content[0].text).toContain('API_ERROR');
+      expect(result.content[0].text).toContain('Unknown API error');
     });
   });
 

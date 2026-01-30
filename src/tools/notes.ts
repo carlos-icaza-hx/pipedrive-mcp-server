@@ -49,16 +49,22 @@ export async function listNotes(params: ListNotesParams) {
 
   const response = await client.get<unknown[]>("/notes", queryParams, "v1");
 
-  if (!response.success || !response.data) {
+  if (!response.success) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error!),
+        text: formatErrorForMcp(response.error || {
+          error: {
+            code: "API_ERROR",
+            message: "Unknown API error",
+            suggestion: "Check your API key and network connection"
+          }
+        }),
       }],
     };
   }
 
-  const notes = response.data;
+  const notes = response.data || [];
   const pagination = extractPaginationV1(response);
 
   return {
@@ -85,7 +91,13 @@ export async function getNote(params: GetNoteParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error!),
+        text: formatErrorForMcp(response.error || {
+          error: {
+            code: "API_ERROR",
+            message: "Unknown API error",
+            suggestion: "Check your API key and network connection"
+          }
+        }),
       }],
     };
   }
@@ -131,7 +143,13 @@ export async function createNote(params: CreateNoteParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error!),
+        text: formatErrorForMcp(response.error || {
+          error: {
+            code: "API_ERROR",
+            message: "Unknown API error",
+            suggestion: "Check your API key and network connection"
+          }
+        }),
       }],
     };
   }
@@ -177,7 +195,13 @@ export async function updateNote(params: UpdateNoteParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error!),
+        text: formatErrorForMcp(response.error || {
+          error: {
+            code: "API_ERROR",
+            message: "Unknown API error",
+            suggestion: "Check your API key and network connection"
+          }
+        }),
       }],
     };
   }
@@ -205,7 +229,13 @@ export async function deleteNote(params: DeleteNoteParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error!),
+        text: formatErrorForMcp(response.error || {
+          error: {
+            code: "API_ERROR",
+            message: "Unknown API error",
+            suggestion: "Check your API key and network connection"
+          }
+        }),
       }],
     };
   }

@@ -36,7 +36,13 @@ export async function listOrganizationFields(params: ListOrganizationFieldsParam
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error!),
+        text: formatErrorForMcp(response.error || {
+          error: {
+            code: "API_ERROR",
+            message: "Unknown API error",
+            suggestion: "Check your API key and network connection"
+          }
+        }),
       }],
     };
   }
@@ -77,7 +83,13 @@ export async function listDealFields(params: ListDealFieldsParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error!),
+        text: formatErrorForMcp(response.error || {
+          error: {
+            code: "API_ERROR",
+            message: "Unknown API error",
+            suggestion: "Check your API key and network connection"
+          }
+        }),
       }],
     };
   }
@@ -118,7 +130,13 @@ export async function listPersonFields(params: ListPersonFieldsParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error!),
+        text: formatErrorForMcp(response.error || {
+          error: {
+            code: "API_ERROR",
+            message: "Unknown API error",
+            suggestion: "Check your API key and network connection"
+          }
+        }),
       }],
     };
   }
@@ -178,7 +196,13 @@ export async function getField(params: GetFieldParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error!),
+        text: formatErrorForMcp(response.error || {
+          error: {
+            code: "API_ERROR",
+            message: "Unknown API error",
+            suggestion: "Check your API key and network connection"
+          }
+        }),
       }],
     };
   }

@@ -47,7 +47,13 @@ export async function listPersons(params: ListPersonsParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error!),
+        text: formatErrorForMcp(response.error || {
+          error: {
+            code: "API_ERROR",
+            message: "Unknown API error",
+            suggestion: "Check your API key and network connection"
+          }
+        }),
       }],
     };
   }
@@ -86,7 +92,13 @@ export async function getPerson(params: GetPersonParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error!),
+        text: formatErrorForMcp(response.error || {
+          error: {
+            code: "API_ERROR",
+            message: "Unknown API error",
+            suggestion: "Check your API key and network connection"
+          }
+        }),
       }],
     };
   }
@@ -128,7 +140,13 @@ export async function createPerson(params: CreatePersonParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error!),
+        text: formatErrorForMcp(response.error || {
+          error: {
+            code: "API_ERROR",
+            message: "Unknown API error",
+            suggestion: "Check your API key and network connection"
+          }
+        }),
       }],
     };
   }
@@ -169,7 +187,13 @@ export async function updatePerson(params: UpdatePersonParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error!),
+        text: formatErrorForMcp(response.error || {
+          error: {
+            code: "API_ERROR",
+            message: "Unknown API error",
+            suggestion: "Check your API key and network connection"
+          }
+        }),
       }],
     };
   }
@@ -211,7 +235,13 @@ export async function searchPersons(params: SearchPersonsParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error!),
+        text: formatErrorForMcp(response.error || {
+          error: {
+            code: "API_ERROR",
+            message: "Unknown API error",
+            suggestion: "Check your API key and network connection"
+          }
+        }),
       }],
     };
   }
@@ -239,7 +269,13 @@ export async function deletePerson(params: DeletePersonParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error!),
+        text: formatErrorForMcp(response.error || {
+          error: {
+            code: "API_ERROR",
+            message: "Unknown API error",
+            suggestion: "Check your API key and network connection"
+          }
+        }),
       }],
     };
   }
