@@ -18,7 +18,7 @@ import {
   type DeleteOrganizationParams,
 } from "../schemas/organizations.js";
 import { buildPaginationParamsV2, extractPaginationV2 } from "../utils/pagination.js";
-import { formatErrorForMcp } from "../utils/errors.js";
+import { formatErrorForMcp, getErrorResponse, destructiveOperationGuard } from "../utils/errors.js";
 import { createListSummary } from "../utils/formatting.js";
 
 /**
@@ -46,14 +46,9 @@ export async function listOrganizations(params: ListOrganizationsParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -91,14 +86,9 @@ export async function getOrganization(params: GetOrganizationParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -136,14 +126,9 @@ export async function createOrganization(params: CreateOrganizationParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -180,14 +165,9 @@ export async function updateOrganization(params: UpdateOrganizationParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -225,14 +205,9 @@ export async function searchOrganizations(params: SearchOrganizationsParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -251,6 +226,9 @@ export async function searchOrganizations(params: SearchOrganizationsParams) {
  * Delete an organization
  */
 export async function deleteOrganization(params: DeleteOrganizationParams) {
+  const guard = destructiveOperationGuard();
+  if (guard) return guard;
+
   const client = getClient();
 
   const response = await client.delete<{ id: number }>(`/organizations/${params.id}`);
@@ -259,14 +237,9 @@ export async function deleteOrganization(params: DeleteOrganizationParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 

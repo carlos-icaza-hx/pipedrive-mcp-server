@@ -1,0 +1,54 @@
+# Pipedrive MCP Server
+
+MCP server providing Pipedrive CRM tools over STDIO transport. TypeScript, Node.js.
+
+## Commands
+
+```bash
+npm run build          # TypeScript compile (tsc)
+npm test               # Run all tests (vitest)
+npm run dev            # Dev mode with tsx
+npm start              # Run compiled server
+npm run test:coverage  # Coverage report
+```
+
+## Architecture
+
+```
+src/
+  index.ts          # MCP server entry point (STDIO transport)
+  client.ts         # Singleton PipedriveClient (lazy init, API calls)
+  config.ts         # Environment validation (PIPEDRIVE_API_KEY, PIPEDRIVE_ENABLE_DESTRUCTIVE)
+  tools/            # MCP tool handlers (one file per entity)
+    index.ts        # Tool registration, allTools array, getToolHandler/getToolSchema
+  schemas/          # Zod input validation (one file per entity, common.ts for shared)
+  utils/
+    errors.ts       # Error types, getErrorResponse, destructiveOperationGuard
+    formatting.ts   # createListSummary
+    pagination.ts   # v1 (offset) and v2 (cursor) pagination helpers
+```
+
+## API Versions
+
+- **v2** (default): deals, persons, organizations, activities (`https://api.pipedrive.com/api/v2`)
+- **v1**: notes, mail, fields, pipelines, users (`https://api.pipedrive.com/v1`)
+- Auth: `api_token` query parameter for both versions
+
+v1 hard sunset: July 31, 2026. Migration to v2 is tracked in Phase 2 issues.
+
+## Conventions
+
+- Every tool handler returns `{ content: [{ type: "text", text: string }] }` with optional `isError: true`
+- Error responses use `getErrorResponse(response)` from `utils/errors.ts`, never inline fallbacks
+- Delete tools are gated by `PIPEDRIVE_ENABLE_DESTRUCTIVE=true` env var (default: disabled)
+- Schemas use Zod. `visible_to` is always `z.number().int()` with `.refine()`, never string enum
+- Tool files export a `*Tools` array and individual handler functions
+- Tests: unit tests in `tests/unit/`, integration tests in `tests/integration/`
+- Integration tests use `setupValidEnv()` from `tests/helpers/mockEnv.ts` and mock fetch
+
+## Adding a New Entity
+
+1. Create schema in `src/schemas/<entity>.ts` extending common schemas
+2. Create tool handlers in `src/tools/<entity>.ts` following existing patterns
+3. Add to `allTools` spread in `src/tools/index.ts`
+4. Add unit tests for schemas, integration tests for tools

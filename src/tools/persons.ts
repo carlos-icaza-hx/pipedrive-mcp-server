@@ -18,7 +18,7 @@ import {
   type DeletePersonParams,
 } from "../schemas/persons.js";
 import { buildPaginationParamsV2, extractPaginationV2 } from "../utils/pagination.js";
-import { formatErrorForMcp } from "../utils/errors.js";
+import { formatErrorForMcp, getErrorResponse, destructiveOperationGuard } from "../utils/errors.js";
 import { createListSummary } from "../utils/formatting.js";
 
 /**
@@ -47,14 +47,9 @@ export async function listPersons(params: ListPersonsParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -92,14 +87,9 @@ export async function getPerson(params: GetPersonParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -140,14 +130,9 @@ export async function createPerson(params: CreatePersonParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -187,14 +172,9 @@ export async function updatePerson(params: UpdatePersonParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -235,14 +215,9 @@ export async function searchPersons(params: SearchPersonsParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -261,6 +236,9 @@ export async function searchPersons(params: SearchPersonsParams) {
  * Delete a person
  */
 export async function deletePerson(params: DeletePersonParams) {
+  const guard = destructiveOperationGuard();
+  if (guard) return guard;
+
   const client = getClient();
 
   const response = await client.delete<{ id: number }>(`/persons/${params.id}`);
@@ -269,14 +247,9 @@ export async function deletePerson(params: DeletePersonParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 

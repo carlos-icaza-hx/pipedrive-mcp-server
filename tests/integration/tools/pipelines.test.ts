@@ -53,6 +53,7 @@ describe('pipelines tools', () => {
       const result = await listPipelines({});
 
       expect(result.content[0].text).toContain('INVALID_API_KEY');
+      expect(result.isError).toBe(true);
     });
   });
 

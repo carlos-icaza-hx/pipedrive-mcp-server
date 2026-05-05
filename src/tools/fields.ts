@@ -15,7 +15,7 @@ import {
   type GetFieldParams,
 } from "../schemas/fields.js";
 import { buildPaginationParamsV1, extractPaginationV1 } from "../utils/pagination.js";
-import { formatErrorForMcp } from "../utils/errors.js";
+import { formatErrorForMcp, getErrorResponse } from "../utils/errors.js";
 import { createListSummary } from "../utils/formatting.js";
 
 /**
@@ -36,14 +36,9 @@ export async function listOrganizationFields(params: ListOrganizationFieldsParam
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -83,14 +78,9 @@ export async function listDealFields(params: ListDealFieldsParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -130,14 +120,9 @@ export async function listPersonFields(params: ListPersonFieldsParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -196,14 +181,9 @@ export async function getField(params: GetFieldParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 

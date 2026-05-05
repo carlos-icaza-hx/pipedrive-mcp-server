@@ -1,6 +1,5 @@
 /**
  * Tests for schemas/organizations.ts
- * Also includes test for visible_to type inconsistency bug
  */
 
 import { describe, it, expect } from 'vitest';
@@ -138,7 +137,7 @@ describe('organizations schemas', () => {
         id: 123,
         name: 'Updated Corp',
         owner_id: 2,
-        visible_to: '5', // Note: string in UpdateOrganizationSchema
+        visible_to: 5,
         address: 'New Address',
         label_ids: [4, 5],
         custom_fields: { key: 'new_value' },
@@ -146,33 +145,25 @@ describe('organizations schemas', () => {
 
       const result = UpdateOrganizationSchema.parse(params);
       expect(result.name).toBe('Updated Corp');
-      expect(result.visible_to).toBe('5');
+      expect(result.visible_to).toBe(5);
     });
 
-    /**
-     * REGRESSION TEST: visible_to type inconsistency (same as persons.ts)
-     */
-    describe('visible_to type inconsistency (known bug)', () => {
-      it('CreateOrganizationSchema accepts visible_to as number', () => {
-        const result = CreateOrganizationSchema.parse({ name: 'Test', visible_to: 3 });
-        expect(typeof result.visible_to).toBe('number');
-      });
-
-      it('UpdateOrganizationSchema accepts visible_to as string', () => {
-        const result = UpdateOrganizationSchema.parse({ id: 1, visible_to: '3' });
-        expect(typeof result.visible_to).toBe('string');
-      });
-    });
-
-    it('should validate visible_to string enum in update', () => {
-      ['1', '3', '5', '7'].forEach((visible_to) => {
+    it('should accept valid visible_to numbers', () => {
+      [1, 3, 5, 7].forEach((visible_to) => {
         const result = UpdateOrganizationSchema.parse({ id: 1, visible_to });
         expect(result.visible_to).toBe(visible_to);
+        expect(typeof result.visible_to).toBe('number');
       });
     });
 
-    it('should reject invalid visible_to string', () => {
-      expect(() => UpdateOrganizationSchema.parse({ id: 1, visible_to: '2' })).toThrow();
+    it('should reject invalid visible_to numbers', () => {
+      [2, 4, 6, 8].forEach((visible_to) => {
+        expect(() => UpdateOrganizationSchema.parse({ id: 1, visible_to })).toThrow();
+      });
+    });
+
+    it('should reject visible_to as string', () => {
+      expect(() => UpdateOrganizationSchema.parse({ id: 1, visible_to: '3' as any })).toThrow();
     });
   });
 

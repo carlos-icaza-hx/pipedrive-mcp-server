@@ -7,12 +7,6 @@ export interface PaginationInfo {
   has_more: boolean;
 }
 
-export interface PaginatedResponse<T> {
-  summary: string;
-  data: T[];
-  pagination: PaginationInfo;
-}
-
 /**
  * Extracts pagination info from Pipedrive v2 API response
  */

@@ -185,6 +185,16 @@ describe('persons tools', () => {
   });
 
   describe('deletePerson', () => {
+    it('should block when destructive operations are disabled', async () => {
+      delete process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE;
+      const { deletePerson } = await getPersonsTools();
+
+      const result = await deletePerson({ id: 1 });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('DESTRUCTIVE_DISABLED');
+    });
+
     it('should delete person', async () => {
       mockApiSuccess({ id: 1 });
       const { deletePerson } = await getPersonsTools();

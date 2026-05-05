@@ -11,7 +11,7 @@ import {
   type ListStagesParams,
   type GetStageParams,
 } from "../schemas/pipelines.js";
-import { formatErrorForMcp } from "../utils/errors.js";
+import { formatErrorForMcp, getErrorResponse } from "../utils/errors.js";
 
 /**
  * List all pipelines
@@ -30,14 +30,9 @@ export async function listPipelines(_params: ListPipelinesParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -76,14 +71,9 @@ export async function listStages(params: ListStagesParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -120,14 +110,9 @@ export async function getStage(params: GetStageParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 

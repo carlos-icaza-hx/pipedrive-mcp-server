@@ -8,6 +8,7 @@ import {
   IdParamSchema,
   SearchTermSchema,
   SortDirectionSchema,
+  VisibilitySchema,
 } from "./common.js";
 
 /**
@@ -54,8 +55,7 @@ export const CreateOrganizationSchema = z.object({
     .describe("Organization name (required)"),
   owner_id: z.number().int().positive().optional()
     .describe("Owner user ID (defaults to API key owner)"),
-  visible_to: z.number().int().refine((v) => [1, 3, 5, 7].includes(v), "Visibility must be 1, 3, 5, or 7").optional()
-    .describe("Visibility: 1=Owner, 3=Group, 5=Subgroups, 7=Company"),
+  visible_to: VisibilitySchema,
   address: z.string().optional()
     .describe("Full address"),
   label_ids: z.array(z.number()).optional()
@@ -74,8 +74,7 @@ export const UpdateOrganizationSchema = IdParamSchema.extend({
     .describe("New organization name"),
   owner_id: z.number().int().positive().optional()
     .describe("New owner user ID"),
-  visible_to: z.enum(["1", "3", "5", "7"]).optional()
-    .describe("New visibility setting"),
+  visible_to: VisibilitySchema,
   address: z.string().optional()
     .describe("New address"),
   label_ids: z.array(z.number()).optional()

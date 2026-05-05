@@ -72,6 +72,7 @@ describe('notes tools', () => {
       const result = await listNotes({});
 
       expect(result.content[0].text).toContain('INVALID_API_KEY');
+      expect(result.isError).toBe(true);
     });
 
     it('should use v1 API endpoint', async () => {
@@ -243,6 +244,16 @@ describe('notes tools', () => {
   });
 
   describe('deleteNote', () => {
+    it('should block when destructive operations are disabled', async () => {
+      delete process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE;
+      const { deleteNote } = await getNotesTools();
+
+      const result = await deleteNote({ id: 1 });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('DESTRUCTIVE_DISABLED');
+    });
+
     it('should delete note', async () => {
       mockApiSuccess({ id: 1 });
       const { deleteNote } = await getNotesTools();

@@ -78,6 +78,7 @@ describe('deals tools', () => {
 
       const text = result.content[0].text;
       expect(text).toContain('INVALID_API_KEY');
+      expect(result.isError).toBe(true);
     });
 
     it('should use cursor for pagination', async () => {
@@ -246,6 +247,15 @@ describe('deals tools', () => {
   });
 
   describe('deleteDeal', () => {
+    it('should block when destructive operations are disabled', async () => {
+      delete process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE;
+
+      const result = await deleteDeal({ id: 1 });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('DESTRUCTIVE_DISABLED');
+    });
+
     it('should delete deal and return confirmation', async () => {
       mockApiSuccess({ id: 1 });
 

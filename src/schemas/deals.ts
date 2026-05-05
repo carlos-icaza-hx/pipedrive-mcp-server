@@ -11,6 +11,7 @@ import {
   OptionalDateSchema,
   SearchTermSchema,
   SortDirectionSchema,
+  VisibilitySchema,
 } from "./common.js";
 
 /**
@@ -82,8 +83,7 @@ export const CreateDealSchema = z.object({
     .describe("Expected close date (YYYY-MM-DD)"),
   probability: z.number().min(0).max(100).optional()
     .describe("Deal success probability (0-100)"),
-  visible_to: z.number().int().refine((v) => [1, 3, 5, 7].includes(v), "Visibility must be 1, 3, 5, or 7").optional()
-    .describe("Visibility: 1=Owner, 3=Group, 5=Subgroups, 7=Company"),
+  visible_to: VisibilitySchema,
   label_ids: z.array(z.number()).optional()
     .describe("Label IDs to attach to deal"),
   add_time: z.string().optional()

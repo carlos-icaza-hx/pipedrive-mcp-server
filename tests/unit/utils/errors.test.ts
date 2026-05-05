@@ -7,6 +7,8 @@ import {
   createErrorResponse,
   handleApiError,
   formatErrorForMcp,
+  getErrorResponse,
+  destructiveOperationGuard,
   type ErrorResponse,
 } from '../../../src/utils/errors.js';
 
@@ -50,6 +52,7 @@ describe('errors', () => {
         'PERMISSION_DENIED',
         'API_ERROR',
         'NETWORK_ERROR',
+        'DESTRUCTIVE_DISABLED',
       ] as const;
 
       codes.forEach((code) => {
@@ -173,6 +176,97 @@ describe('errors', () => {
 
       // Empty string is falsy, so no suggestion line
       expect(result).toBe('Error [API_ERROR]: Server error');
+    });
+  });
+
+  describe('getErrorResponse', () => {
+    it('should return response error when present', () => {
+      const error: ErrorResponse = {
+        error: { code: 'NOT_FOUND', message: 'Not found' },
+      };
+      const result = getErrorResponse({ error });
+
+      expect(result).toBe(error);
+    });
+
+    it('should return default error when response error is undefined', () => {
+      const result = getErrorResponse({});
+
+      expect(result.error.code).toBe('API_ERROR');
+      expect(result.error.message).toBe('Unknown API error');
+      expect(result.error.suggestion).toContain('API key');
+    });
+
+    it('should return default error when response error is null-ish', () => {
+      const result = getErrorResponse({ error: undefined });
+
+      expect(result.error.code).toBe('API_ERROR');
+    });
+  });
+
+  describe('destructiveOperationGuard', () => {
+    const originalEnv = process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE;
+
+    afterEach(() => {
+      if (originalEnv === undefined) {
+        delete process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE;
+      } else {
+        process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = originalEnv;
+      }
+    });
+
+    it('should return null when PIPEDRIVE_ENABLE_DESTRUCTIVE is true', () => {
+      process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = 'true';
+      expect(destructiveOperationGuard()).toBeNull();
+    });
+
+    it('should return MCP error response when env var is unset', () => {
+      delete process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE;
+      const result = destructiveOperationGuard();
+
+      expect(result).not.toBeNull();
+      expect(result!.isError).toBe(true);
+      expect(result!.content[0].type).toBe('text');
+      expect(result!.content[0].text).toContain('DESTRUCTIVE_DISABLED');
+    });
+
+    it('should return MCP error response when env var is false', () => {
+      process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = 'false';
+      const result = destructiveOperationGuard();
+
+      expect(result).not.toBeNull();
+      expect(result!.isError).toBe(true);
+    });
+
+    it('should treat TRUE (uppercase) as disabled', () => {
+      process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = 'TRUE';
+      const result = destructiveOperationGuard();
+
+      expect(result).not.toBeNull();
+      expect(result!.isError).toBe(true);
+    });
+
+    it('should treat 1 as disabled', () => {
+      process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = '1';
+      const result = destructiveOperationGuard();
+
+      expect(result).not.toBeNull();
+      expect(result!.isError).toBe(true);
+    });
+
+    it('should treat yes as disabled', () => {
+      process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = 'yes';
+      const result = destructiveOperationGuard();
+
+      expect(result).not.toBeNull();
+      expect(result!.isError).toBe(true);
+    });
+
+    it('should include suggestion in error response', () => {
+      delete process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE;
+      const result = destructiveOperationGuard();
+
+      expect(result!.content[0].text).toContain('PIPEDRIVE_ENABLE_DESTRUCTIVE=true');
     });
   });
 });
