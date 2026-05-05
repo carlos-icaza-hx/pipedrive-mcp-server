@@ -16,7 +16,7 @@ import {
   type DeleteActivityParams,
 } from "../schemas/activities.js";
 import { buildPaginationParamsV2, extractPaginationV2 } from "../utils/pagination.js";
-import { formatErrorForMcp } from "../utils/errors.js";
+import { formatErrorForMcp, getErrorResponse, destructiveOperationGuard } from "../utils/errors.js";
 import { createListSummary } from "../utils/formatting.js";
 
 /**
@@ -51,14 +51,9 @@ export async function listActivities(params: ListActivitiesParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -95,14 +90,9 @@ export async function getActivity(params: GetActivityParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -152,14 +142,9 @@ export async function createActivity(params: CreateActivityParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -208,14 +193,9 @@ export async function updateActivity(params: UpdateActivityParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 
@@ -234,6 +214,9 @@ export async function updateActivity(params: UpdateActivityParams) {
  * Delete an activity
  */
 export async function deleteActivity(params: DeleteActivityParams) {
+  const guard = destructiveOperationGuard();
+  if (guard) return guard;
+
   const client = getClient();
 
   const response = await client.delete<{ id: number }>(`/activities/${params.id}`);
@@ -242,14 +225,9 @@ export async function deleteActivity(params: DeleteActivityParams) {
     return {
       content: [{
         type: "text" as const,
-        text: formatErrorForMcp(response.error || {
-          error: {
-            code: "API_ERROR",
-            message: "Unknown API error",
-            suggestion: "Check your API key and network connection"
-          }
-        }),
+        text: formatErrorForMcp(getErrorResponse(response)),
       }],
+      isError: true,
     };
   }
 

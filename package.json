@@ -15,6 +15,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
+    "lint": "eslint src/",
     "prepublishOnly": "npm run build"
   },
   "repository": {
@@ -39,8 +40,10 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@vitest/coverage-v8": "^1.0.0",
+    "eslint": "^9.39.4",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
+    "typescript-eslint": "^8.59.2",
     "vitest": "^1.0.0"
   },
   "publishConfig": {

@@ -77,6 +77,7 @@ describe('activities tools', () => {
       const result = await listActivities({});
 
       expect(result.content[0].text).toContain('INVALID_API_KEY');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -196,6 +197,16 @@ describe('activities tools', () => {
   });
 
   describe('deleteActivity', () => {
+    it('should block when destructive operations are disabled', async () => {
+      delete process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE;
+      const { deleteActivity } = await getActivitiesTools();
+
+      const result = await deleteActivity({ id: 1 });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('DESTRUCTIVE_DISABLED');
+    });
+
     it('should delete activity', async () => {
       mockApiSuccess({ id: 1 });
       const { deleteActivity } = await getActivitiesTools();

@@ -6,6 +6,7 @@ export interface Config {
   apiKey: string;
   baseUrlV1: string;
   baseUrlV2: string;
+  enableDestructive: boolean;
 }
 
 /**
@@ -33,6 +34,7 @@ export function getConfig(): Config {
     apiKey,
     baseUrlV1: "https://api.pipedrive.com/v1",
     baseUrlV2: "https://api.pipedrive.com/api/v2",
+    enableDestructive: process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE === "true",
   };
 }
 

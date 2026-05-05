@@ -51,6 +51,34 @@ describe('config', () => {
 
       expect(() => getConfig()).toThrow(/Personal preferences > API/);
     });
+
+    it('should return enableDestructive false when env var is unset', () => {
+      setupEnvWithApiKey(VALID_API_KEY);
+      delete process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE;
+
+      const config = getConfig();
+
+      expect(config.enableDestructive).toBe(false);
+    });
+
+    it('should return enableDestructive true when env var is "true"', () => {
+      setupEnvWithApiKey(VALID_API_KEY);
+      process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = 'true';
+
+      const config = getConfig();
+
+      expect(config.enableDestructive).toBe(true);
+    });
+
+    it('should return enableDestructive false for non-"true" values', () => {
+      setupEnvWithApiKey(VALID_API_KEY);
+
+      ['TRUE', '1', 'yes', 'false'].forEach((value) => {
+        process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = value;
+        const config = getConfig();
+        expect(config.enableDestructive).toBe(false);
+      });
+    });
   });
 
   describe('validateConfig', () => {

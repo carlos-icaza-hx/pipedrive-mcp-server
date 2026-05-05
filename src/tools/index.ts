@@ -60,13 +60,3 @@ export function getToolSchema(name: string) {
   return tool?.schema;
 }
 
-// Re-export individual tool modules for direct access
-export { dealTools } from "./deals.js";
-export { personTools } from "./persons.js";
-export { activityTools } from "./activities.js";
-export { organizationTools } from "./organizations.js";
-export { mailTools } from "./mail.js";
-export { fieldTools } from "./fields.js";
-export { pipelineTools } from "./pipelines.js";
-export { userTools } from "./users.js";
-export { noteTools } from "./notes.js";

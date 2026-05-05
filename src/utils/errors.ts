@@ -18,7 +18,8 @@ export type ErrorCode =
   | "RATE_LIMITED"
   | "PERMISSION_DENIED"
   | "API_ERROR"
-  | "NETWORK_ERROR";
+  | "NETWORK_ERROR"
+  | "DESTRUCTIVE_DISABLED";
 
 /**
  * Creates a standardized error response
@@ -82,6 +83,38 @@ export function handleApiError(status: number, body: unknown): ErrorResponse {
         `Pipedrive API error (${status}): ${bodyMessage}`
       );
   }
+}
+
+/**
+ * Returns an MCP tool error response if destructive operations are disabled, null if allowed.
+ */
+export function destructiveOperationGuard(): { content: { type: "text"; text: string }[]; isError: true } | null {
+  const enabled = process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE === "true";
+  if (enabled) return null;
+
+  return {
+    content: [{
+      type: "text" as const,
+      text: formatErrorForMcp(createErrorResponse(
+        "DESTRUCTIVE_DISABLED",
+        "Destructive operations are disabled",
+        "Set PIPEDRIVE_ENABLE_DESTRUCTIVE=true in your environment to enable delete operations"
+      )),
+    }],
+    isError: true,
+  };
+}
+
+const DEFAULT_API_ERROR: ErrorResponse = {
+  error: {
+    code: "API_ERROR",
+    message: "Unknown API error",
+    suggestion: "Check your API key and network connection",
+  },
+};
+
+export function getErrorResponse(response: { error?: ErrorResponse }): ErrorResponse {
+  return response.error ?? DEFAULT_API_ERROR;
 }
 
 /**

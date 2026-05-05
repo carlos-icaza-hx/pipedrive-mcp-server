@@ -163,6 +163,16 @@ describe('organizations tools', () => {
   });
 
   describe('deleteOrganization', () => {
+    it('should block when destructive operations are disabled', async () => {
+      delete process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE;
+      const { deleteOrganization } = await getOrganizationsTools();
+
+      const result = await deleteOrganization({ id: 1 });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('DESTRUCTIVE_DISABLED');
+    });
+
     it('should delete organization', async () => {
       mockApiSuccess({ id: 1 });
       const { deleteOrganization } = await getOrganizationsTools();

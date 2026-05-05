@@ -8,6 +8,7 @@ import {
   IdParamSchema,
   SearchTermSchema,
   SortDirectionSchema,
+  VisibilitySchema,
 } from "./common.js";
 
 /**
@@ -78,8 +79,7 @@ export const CreatePersonSchema = z.object({
     .describe("Owner user ID (defaults to API key owner)"),
   org_id: z.number().int().positive().optional()
     .describe("Organization ID to link person to"),
-  visible_to: z.number().int().refine((v) => [1, 3, 5, 7].includes(v), "Visibility must be 1, 3, 5, or 7").optional()
-    .describe("Visibility: 1=Owner, 3=Group, 5=Subgroups, 7=Company"),
+  visible_to: VisibilitySchema,
   marketing_status: z.enum(["no_consent", "unsubscribed", "subscribed", "archived"]).optional()
     .describe("Marketing email consent status"),
   label_ids: z.array(z.number()).optional()
@@ -102,8 +102,7 @@ export const UpdatePersonSchema = IdParamSchema.extend({
     .describe("New owner user ID"),
   org_id: z.number().int().positive().optional()
     .describe("New organization ID"),
-  visible_to: z.enum(["1", "3", "5", "7"]).optional()
-    .describe("New visibility setting"),
+  visible_to: VisibilitySchema,
   marketing_status: z.enum(["no_consent", "unsubscribed", "subscribed", "archived"]).optional()
     .describe("New marketing status"),
   label_ids: z.array(z.number()).optional()

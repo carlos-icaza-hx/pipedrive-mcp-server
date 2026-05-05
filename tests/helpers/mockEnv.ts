@@ -12,6 +12,7 @@ export const VALID_API_KEY = 'a'.repeat(40);
  */
 export function setupValidEnv(): void {
   process.env.PIPEDRIVE_API_KEY = VALID_API_KEY;
+  process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = 'true';
 }
 
 /**

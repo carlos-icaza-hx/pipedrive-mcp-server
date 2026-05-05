@@ -1,0 +1,82 @@
+{
+  "manifest_version": "0.3",
+  "name": "pipedrive-mcp",
+  "display_name": "Pipedrive CRM",
+  "version": "1.0.0",
+  "description": "Query, create, and update Pipedrive CRM data - deals, contacts, organizations, activities, and more.",
+  "author": {
+    "name": "Chris Kalima",
+    "url": "https://github.com/ckalima/pipedrive-mcp-server"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ckalima/pipedrive-mcp-server"
+  },
+  "license": "MIT",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"],
+      "env": {
+        "PIPEDRIVE_API_KEY": "${user_config.api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "api_key": {
+      "type": "string",
+      "title": "Pipedrive API Key",
+      "description": "Your Pipedrive API token. Find it at Settings > Personal preferences > API in Pipedrive.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "tools": [
+    { "name": "pipedrive_list_deals", "description": "List and filter deals" },
+    { "name": "pipedrive_get_deal", "description": "Get deal details" },
+    { "name": "pipedrive_create_deal", "description": "Create a new deal" },
+    { "name": "pipedrive_update_deal", "description": "Update an existing deal" },
+    { "name": "pipedrive_delete_deal", "description": "Delete a deal" },
+    { "name": "pipedrive_search_deals", "description": "Search deals by term" },
+    { "name": "pipedrive_list_persons", "description": "List and filter contacts" },
+    { "name": "pipedrive_get_person", "description": "Get contact details" },
+    { "name": "pipedrive_create_person", "description": "Create a new contact" },
+    { "name": "pipedrive_update_person", "description": "Update a contact" },
+    { "name": "pipedrive_delete_person", "description": "Delete a contact" },
+    { "name": "pipedrive_search_persons", "description": "Search contacts by term" },
+    { "name": "pipedrive_list_organizations", "description": "List organizations" },
+    { "name": "pipedrive_get_organization", "description": "Get organization details" },
+    { "name": "pipedrive_create_organization", "description": "Create an organization" },
+    { "name": "pipedrive_update_organization", "description": "Update an organization" },
+    { "name": "pipedrive_delete_organization", "description": "Delete an organization" },
+    { "name": "pipedrive_search_organizations", "description": "Search organizations" },
+    { "name": "pipedrive_list_activities", "description": "List activities" },
+    { "name": "pipedrive_get_activity", "description": "Get activity details" },
+    { "name": "pipedrive_create_activity", "description": "Create an activity" },
+    { "name": "pipedrive_update_activity", "description": "Update an activity" },
+    { "name": "pipedrive_delete_activity", "description": "Delete an activity" },
+    { "name": "pipedrive_list_notes", "description": "List notes" },
+    { "name": "pipedrive_get_note", "description": "Get note details" },
+    { "name": "pipedrive_create_note", "description": "Create a note" },
+    { "name": "pipedrive_update_note", "description": "Update a note" },
+    { "name": "pipedrive_delete_note", "description": "Delete a note" },
+    { "name": "pipedrive_list_pipelines", "description": "List pipelines" },
+    { "name": "pipedrive_list_stages", "description": "List stages in a pipeline" },
+    { "name": "pipedrive_get_stage", "description": "Get stage details" },
+    { "name": "pipedrive_list_deal_fields", "description": "List deal custom fields" },
+    { "name": "pipedrive_list_person_fields", "description": "List contact custom fields" },
+    { "name": "pipedrive_list_organization_fields", "description": "List organization custom fields" },
+    { "name": "pipedrive_get_field", "description": "Get custom field details" },
+    { "name": "pipedrive_list_users", "description": "List Pipedrive users" },
+    { "name": "pipedrive_get_user", "description": "Get user details" },
+    { "name": "pipedrive_get_current_user", "description": "Get current authenticated user" },
+    { "name": "pipedrive_list_mail_threads", "description": "List email threads" },
+    { "name": "pipedrive_get_mail_thread", "description": "Get email thread details" },
+    { "name": "pipedrive_get_mail_message", "description": "Get email message details" },
+    { "name": "pipedrive_get_deal_emails", "description": "Get emails linked to a deal" },
+    { "name": "pipedrive_get_person_emails", "description": "Get emails linked to a contact" }
+  ],
+  "keywords": ["crm", "pipedrive", "sales", "deals", "contacts"]
+}

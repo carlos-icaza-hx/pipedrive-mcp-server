@@ -1,6 +1,5 @@
 /**
  * Tests for schemas/persons.ts
- * Includes tests for the known visible_to type inconsistency bug
  */
 
 import { describe, it, expect } from 'vitest';
@@ -210,7 +209,7 @@ describe('persons schemas', () => {
         phone: [{ value: '+9876543210', primary: true }],
         owner_id: 2,
         org_id: 10,
-        visible_to: '5',  // Note: string in UpdatePersonSchema
+        visible_to: 5,
         marketing_status: 'unsubscribed',
         label_ids: [3, 4],
         custom_fields: { key: 'new_value' },
@@ -219,50 +218,30 @@ describe('persons schemas', () => {
       const result = UpdatePersonSchema.parse(params);
       expect(result.id).toBe(123);
       expect(result.name).toBe('Updated Name');
-      expect(result.visible_to).toBe('5');
+      expect(result.visible_to).toBe(5);
     });
 
-    /**
-     * REGRESSION TEST: visible_to type inconsistency
-     *
-     * CreatePersonSchema uses z.number().int() for visible_to
-     * UpdatePersonSchema uses z.enum(["1", "3", "5", "7"]) - string enum
-     *
-     * This is a known bug that should be documented and tested.
-     */
-    describe('visible_to type inconsistency (known bug)', () => {
-      it('CreatePersonSchema accepts visible_to as number', () => {
-        const result = CreatePersonSchema.parse({ name: 'Test', visible_to: 3 });
-        expect(result.visible_to).toBe(3);
-        expect(typeof result.visible_to).toBe('number');
-      });
-
-      it('UpdatePersonSchema accepts visible_to as string', () => {
-        const result = UpdatePersonSchema.parse({ id: 1, visible_to: '3' });
-        expect(result.visible_to).toBe('3');
-        expect(typeof result.visible_to).toBe('string');
-      });
-
-      it('CreatePersonSchema rejects visible_to as string', () => {
-        expect(() => CreatePersonSchema.parse({ name: 'Test', visible_to: '3' as any })).toThrow();
-      });
-
-      it('UpdatePersonSchema rejects visible_to as number', () => {
-        expect(() => UpdatePersonSchema.parse({ id: 1, visible_to: 3 as any })).toThrow();
-      });
-    });
-
-    it('should validate visible_to string enum in update', () => {
-      ['1', '3', '5', '7'].forEach((visible_to) => {
+    it('should accept valid visible_to numbers', () => {
+      [1, 3, 5, 7].forEach((visible_to) => {
         const result = UpdatePersonSchema.parse({ id: 1, visible_to });
         expect(result.visible_to).toBe(visible_to);
+        expect(typeof result.visible_to).toBe('number');
       });
     });
 
-    it('should reject invalid visible_to string in update', () => {
-      ['2', '4', '6', '8', '0', 'invalid'].forEach((visible_to) => {
+    it('should reject invalid visible_to numbers', () => {
+      [2, 4, 6, 8].forEach((visible_to) => {
         expect(() => UpdatePersonSchema.parse({ id: 1, visible_to })).toThrow();
       });
+    });
+
+    it('should reject visible_to as string', () => {
+      expect(() => UpdatePersonSchema.parse({ id: 1, visible_to: '3' as any })).toThrow();
+    });
+
+    it('should accept omitted visible_to', () => {
+      const result = UpdatePersonSchema.parse({ id: 1 });
+      expect(result.visible_to).toBeUndefined();
     });
   });
 
