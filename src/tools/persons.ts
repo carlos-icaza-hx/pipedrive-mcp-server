@@ -18,7 +18,7 @@ import {
   type DeletePersonParams,
 } from "../schemas/persons.js";
 import { buildPaginationParamsV2, extractPaginationV2 } from "../utils/pagination.js";
-import { formatErrorForMcp, getErrorResponse, destructiveOperationGuard } from "../utils/errors.js";
+import { mcpErrorResult, destructiveOperationGuard } from "../utils/errors.js";
 import { createListSummary } from "../utils/formatting.js";
 
 /**
@@ -44,13 +44,7 @@ export async function listPersons(params: ListPersonsParams) {
   const response = await client.get<unknown[]>("/persons", queryParams);
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   const persons = response.data;
@@ -84,13 +78,7 @@ export async function getPerson(params: GetPersonParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -127,13 +115,7 @@ export async function createPerson(params: CreatePersonParams) {
   const response = await client.post<unknown>("/persons", body);
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -169,13 +151,7 @@ export async function updatePerson(params: UpdatePersonParams) {
   const response = await client.patch<unknown>(`/persons/${id}`, body);
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -212,13 +188,7 @@ export async function searchPersons(params: SearchPersonsParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -244,13 +214,7 @@ export async function deletePerson(params: DeletePersonParams) {
   const response = await client.delete<{ id: number }>(`/persons/${params.id}`);
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {

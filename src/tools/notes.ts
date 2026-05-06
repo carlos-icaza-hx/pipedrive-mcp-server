@@ -16,7 +16,7 @@ import {
   type DeleteNoteParams,
 } from "../schemas/notes.js";
 import { buildPaginationParamsV1, extractPaginationV1 } from "../utils/pagination.js";
-import { formatErrorForMcp, getErrorResponse, destructiveOperationGuard } from "../utils/errors.js";
+import { mcpErrorResult, destructiveOperationGuard } from "../utils/errors.js";
 import { createListSummary } from "../utils/formatting.js";
 
 /**
@@ -50,13 +50,7 @@ export async function listNotes(params: ListNotesParams) {
   const response = await client.get<unknown[]>("/notes", queryParams, "v1");
 
   if (!response.success) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   const notes = response.data || [];
@@ -83,13 +77,7 @@ export async function getNote(params: GetNoteParams) {
   const response = await client.get<unknown>(`/notes/${params.id}`, undefined, "v1");
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -130,13 +118,7 @@ export async function createNote(params: CreateNoteParams) {
   const response = await client.post<unknown>("/notes", body, "v1");
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -177,13 +159,7 @@ export async function updateNote(params: UpdateNoteParams) {
   const response = await client.put<unknown>(`/notes/${id}`, body, "v1");
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -209,13 +185,7 @@ export async function deleteNote(params: DeleteNoteParams) {
   const response = await client.delete<{ id: number }>(`/notes/${params.id}`, "v1");
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {

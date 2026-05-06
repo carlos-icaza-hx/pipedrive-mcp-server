@@ -16,7 +16,7 @@ import {
   type DeleteActivityParams,
 } from "../schemas/activities.js";
 import { buildPaginationParamsV2, extractPaginationV2 } from "../utils/pagination.js";
-import { formatErrorForMcp, getErrorResponse, destructiveOperationGuard } from "../utils/errors.js";
+import { mcpErrorResult, destructiveOperationGuard } from "../utils/errors.js";
 import { createListSummary } from "../utils/formatting.js";
 
 /**
@@ -48,13 +48,7 @@ export async function listActivities(params: ListActivitiesParams) {
   const response = await client.get<unknown[]>("/activities", queryParams);
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   const activities = response.data;
@@ -87,13 +81,7 @@ export async function getActivity(params: GetActivityParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -139,13 +127,7 @@ export async function createActivity(params: CreateActivityParams) {
   const response = await client.post<unknown>("/activities", body);
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -190,13 +172,7 @@ export async function updateActivity(params: UpdateActivityParams) {
   const response = await client.patch<unknown>(`/activities/${id}`, body);
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -222,13 +198,7 @@ export async function deleteActivity(params: DeleteActivityParams) {
   const response = await client.delete<{ id: number }>(`/activities/${params.id}`);
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {

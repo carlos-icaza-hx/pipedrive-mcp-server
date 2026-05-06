@@ -18,7 +18,7 @@ import {
   type DeleteOrganizationParams,
 } from "../schemas/organizations.js";
 import { buildPaginationParamsV2, extractPaginationV2 } from "../utils/pagination.js";
-import { formatErrorForMcp, getErrorResponse, destructiveOperationGuard } from "../utils/errors.js";
+import { mcpErrorResult, destructiveOperationGuard } from "../utils/errors.js";
 import { createListSummary } from "../utils/formatting.js";
 
 /**
@@ -43,13 +43,7 @@ export async function listOrganizations(params: ListOrganizationsParams) {
   const response = await client.get<unknown[]>("/organizations", queryParams);
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   const orgs = response.data;
@@ -83,13 +77,7 @@ export async function getOrganization(params: GetOrganizationParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -123,13 +111,7 @@ export async function createOrganization(params: CreateOrganizationParams) {
   const response = await client.post<unknown>("/organizations", body);
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -162,13 +144,7 @@ export async function updateOrganization(params: UpdateOrganizationParams) {
   const response = await client.patch<unknown>(`/organizations/${id}`, body);
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -202,13 +178,7 @@ export async function searchOrganizations(params: SearchOrganizationsParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -234,13 +204,7 @@ export async function deleteOrganization(params: DeleteOrganizationParams) {
   const response = await client.delete<{ id: number }>(`/organizations/${params.id}`);
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {

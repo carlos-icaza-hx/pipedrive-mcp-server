@@ -190,7 +190,7 @@ describe('PipedriveClient', () => {
       const response = await client.post('/deals', {});
 
       expect(response.success).toBe(false);
-      expect(response.error?.error.code).toBe('VALIDATION_ERROR');
+      expect(response.error?.code).toBe('VALIDATION_ERROR');
     });
 
     it('should handle 401 Unauthorized', async () => {
@@ -200,7 +200,7 @@ describe('PipedriveClient', () => {
       const response = await client.get('/deals');
 
       expect(response.success).toBe(false);
-      expect(response.error?.error.code).toBe('INVALID_API_KEY');
+      expect(response.error?.code).toBe('INVALID_API_KEY');
     });
 
     it('should handle 403 Forbidden', async () => {
@@ -210,7 +210,7 @@ describe('PipedriveClient', () => {
       const response = await client.get('/deals/1');
 
       expect(response.success).toBe(false);
-      expect(response.error?.error.code).toBe('PERMISSION_DENIED');
+      expect(response.error?.code).toBe('PERMISSION_DENIED');
     });
 
     it('should handle 404 Not Found', async () => {
@@ -220,7 +220,7 @@ describe('PipedriveClient', () => {
       const response = await client.get('/deals/99999');
 
       expect(response.success).toBe(false);
-      expect(response.error?.error.code).toBe('NOT_FOUND');
+      expect(response.error?.code).toBe('NOT_FOUND');
     });
 
     it('should handle 429 Rate Limited', async () => {
@@ -230,7 +230,7 @@ describe('PipedriveClient', () => {
       const response = await client.get('/deals');
 
       expect(response.success).toBe(false);
-      expect(response.error?.error.code).toBe('RATE_LIMITED');
+      expect(response.error?.code).toBe('RATE_LIMITED');
     });
 
     it('should handle 500 Server Error', async () => {
@@ -240,7 +240,7 @@ describe('PipedriveClient', () => {
       const response = await client.get('/deals');
 
       expect(response.success).toBe(false);
-      expect(response.error?.error.code).toBe('API_ERROR');
+      expect(response.error?.code).toBe('API_ERROR');
     });
 
     it('should handle network errors', async () => {
@@ -250,8 +250,8 @@ describe('PipedriveClient', () => {
       const response = await client.get('/deals');
 
       expect(response.success).toBe(false);
-      expect(response.error?.error.code).toBe('NETWORK_ERROR');
-      expect(response.error?.error.message).toContain('Connection refused');
+      expect(response.error?.code).toBe('NETWORK_ERROR');
+      expect(response.error?.message).toContain('Connection refused');
     });
   });
 

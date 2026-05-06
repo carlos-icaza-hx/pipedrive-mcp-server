@@ -11,7 +11,7 @@ import {
   type GetUserParams,
   type GetCurrentUserParams,
 } from "../schemas/users.js";
-import { formatErrorForMcp, getErrorResponse } from "../utils/errors.js";
+import { mcpErrorResult } from "../utils/errors.js";
 
 /**
  * List all users
@@ -26,13 +26,7 @@ export async function listUsers(_params: ListUsersParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   const users = response.data;
@@ -61,13 +55,7 @@ export async function getUser(params: GetUserParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -94,13 +82,7 @@ export async function getCurrentUser(_params: GetCurrentUserParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {

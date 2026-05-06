@@ -11,7 +11,7 @@ import {
   type ListStagesParams,
   type GetStageParams,
 } from "../schemas/pipelines.js";
-import { formatErrorForMcp, getErrorResponse } from "../utils/errors.js";
+import { mcpErrorResult } from "../utils/errors.js";
 
 /**
  * List all pipelines
@@ -27,13 +27,7 @@ export async function listPipelines(_params: ListPipelinesParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   const pipelines = response.data;
@@ -68,13 +62,7 @@ export async function listStages(params: ListStagesParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   const stages = response.data;
@@ -107,13 +95,7 @@ export async function getStage(params: GetStageParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
