@@ -17,7 +17,7 @@ import {
   type GetMailMessageParams,
 } from "../schemas/mail.js";
 import { buildPaginationParamsV1, extractPaginationV1 } from "../utils/pagination.js";
-import { formatErrorForMcp, getErrorResponse } from "../utils/errors.js";
+import { mcpErrorResult } from "../utils/errors.js";
 import { createListSummary } from "../utils/formatting.js";
 
 /**
@@ -35,13 +35,7 @@ export async function getPersonEmails(params: GetPersonEmailsParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   const messages = response.data;
@@ -77,13 +71,7 @@ export async function getDealEmails(params: GetDealEmailsParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   const messages = response.data;
@@ -120,13 +108,7 @@ export async function listMailThreads(params: ListMailThreadsParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   const threads = response.data;
@@ -160,13 +142,7 @@ export async function getMailThread(params: GetMailThreadParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -198,13 +174,7 @@ export async function getMailMessage(params: GetMailMessageParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {

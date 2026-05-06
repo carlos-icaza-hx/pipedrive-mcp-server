@@ -15,7 +15,7 @@ export function createListSummary(
   }
 
   if (hasMore) {
-    parts.push("More available with cursor pagination.");
+    parts.push("More available with cursor pagination");
   }
 
   return parts.join(". ") + ".";

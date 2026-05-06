@@ -18,7 +18,7 @@ import {
   type DeleteDealParams,
 } from "../schemas/deals.js";
 import { buildPaginationParamsV2, extractPaginationV2 } from "../utils/pagination.js";
-import { formatErrorForMcp, getErrorResponse, destructiveOperationGuard } from "../utils/errors.js";
+import { mcpErrorResult, destructiveOperationGuard } from "../utils/errors.js";
 import { createListSummary } from "../utils/formatting.js";
 
 /**
@@ -47,13 +47,7 @@ export async function listDeals(params: ListDealsParams) {
   const response = await client.get<unknown[]>("/deals", queryParams);
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   const deals = response.data;
@@ -87,13 +81,7 @@ export async function getDeal(params: GetDealParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -135,13 +123,7 @@ export async function createDeal(params: CreateDealParams) {
   const response = await client.post<unknown>("/deals", body);
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -184,13 +166,7 @@ export async function updateDeal(params: UpdateDealParams) {
   const response = await client.patch<unknown>(`/deals/${id}`, body);
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -227,13 +203,7 @@ export async function searchDeals(params: SearchDealsParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {
@@ -259,13 +229,7 @@ export async function deleteDeal(params: DeleteDealParams) {
   const response = await client.delete<{ id: number }>(`/deals/${params.id}`);
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   return {

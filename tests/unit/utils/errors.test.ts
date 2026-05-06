@@ -2,15 +2,17 @@
  * Tests for utils/errors.ts
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import {
   createErrorResponse,
   handleApiError,
   formatErrorForMcp,
   getErrorResponse,
   destructiveOperationGuard,
+  mcpErrorResult,
   type ErrorResponse,
 } from '../../../src/utils/errors.js';
+import { VALID_API_KEY } from '../../helpers/mockEnv.js';
 
 describe('errors', () => {
   describe('createErrorResponse', () => {
@@ -18,11 +20,9 @@ describe('errors', () => {
       const result = createErrorResponse('NOT_FOUND', 'Resource not found');
 
       expect(result).toEqual({
-        error: {
-          code: 'NOT_FOUND',
-          message: 'Resource not found',
-          suggestion: undefined,
-        },
+        code: 'NOT_FOUND',
+        message: 'Resource not found',
+        suggestion: undefined,
       });
     });
 
@@ -34,11 +34,9 @@ describe('errors', () => {
       );
 
       expect(result).toEqual({
-        error: {
-          code: 'RATE_LIMITED',
-          message: 'Too many requests',
-          suggestion: 'Wait 60 seconds',
-        },
+        code: 'RATE_LIMITED',
+        message: 'Too many requests',
+        suggestion: 'Wait 60 seconds',
       });
     });
 
@@ -57,7 +55,7 @@ describe('errors', () => {
 
       codes.forEach((code) => {
         const result = createErrorResponse(code, 'Test message');
-        expect(result.error.code).toBe(code);
+        expect(result.code).toBe(code);
       });
     });
   });
@@ -66,80 +64,78 @@ describe('errors', () => {
     it('should handle 400 Bad Request', () => {
       const result = handleApiError(400, { error: 'Invalid parameter' });
 
-      expect(result.error.code).toBe('VALIDATION_ERROR');
-      expect(result.error.message).toContain('Invalid parameter');
-      expect(result.error.suggestion).toContain('Check your request parameters');
+      expect(result.code).toBe('VALIDATION_ERROR');
+      expect(result.message).toContain('Invalid parameter');
+      expect(result.suggestion).toContain('Check your request parameters');
     });
 
     it('should handle 401 Unauthorized', () => {
       const result = handleApiError(401, { error: 'Invalid API key' });
 
-      expect(result.error.code).toBe('INVALID_API_KEY');
-      expect(result.error.message).toContain('invalid or expired');
-      expect(result.error.suggestion).toContain('Verify your API key');
+      expect(result.code).toBe('INVALID_API_KEY');
+      expect(result.message).toContain('invalid or expired');
+      expect(result.suggestion).toContain('Verify your API key');
     });
 
     it('should handle 403 Forbidden', () => {
       const result = handleApiError(403, { error: 'Access denied' });
 
-      expect(result.error.code).toBe('PERMISSION_DENIED');
-      expect(result.error.message).toContain('Access denied');
-      expect(result.error.suggestion).toContain('permissions');
+      expect(result.code).toBe('PERMISSION_DENIED');
+      expect(result.message).toContain('Access denied');
+      expect(result.suggestion).toContain('permissions');
     });
 
     it('should handle 404 Not Found', () => {
       const result = handleApiError(404, { error: 'Deal not found' });
 
-      expect(result.error.code).toBe('NOT_FOUND');
-      expect(result.error.message).toContain('not found');
-      expect(result.error.suggestion).toContain('Verify the ID');
+      expect(result.code).toBe('NOT_FOUND');
+      expect(result.message).toContain('not found');
+      expect(result.suggestion).toContain('Verify the ID');
     });
 
     it('should handle 429 Too Many Requests', () => {
       const result = handleApiError(429, { error: 'Rate limit exceeded' });
 
-      expect(result.error.code).toBe('RATE_LIMITED');
-      expect(result.error.message).toContain('Rate limit');
-      expect(result.error.suggestion).toContain('Wait 60 seconds');
+      expect(result.code).toBe('RATE_LIMITED');
+      expect(result.message).toContain('Rate limit');
+      expect(result.suggestion).toContain('Wait 60 seconds');
     });
 
     it('should handle unknown status codes as API_ERROR', () => {
       const result = handleApiError(500, { error: 'Internal server error' });
 
-      expect(result.error.code).toBe('API_ERROR');
-      expect(result.error.message).toContain('500');
-      expect(result.error.message).toContain('Internal server error');
+      expect(result.code).toBe('API_ERROR');
+      expect(result.message).toContain('500');
+      expect(result.message).toContain('Internal server error');
     });
 
     it('should handle body without error field', () => {
       const result = handleApiError(400, { message: 'Something went wrong' });
 
-      expect(result.error.code).toBe('VALIDATION_ERROR');
-      expect(result.error.message).toContain('Unknown error');
+      expect(result.code).toBe('VALIDATION_ERROR');
+      expect(result.message).toContain('Unknown error');
     });
 
     it('should handle null body', () => {
       const result = handleApiError(500, null);
 
-      expect(result.error.code).toBe('API_ERROR');
-      expect(result.error.message).toContain('Unknown error');
+      expect(result.code).toBe('API_ERROR');
+      expect(result.message).toContain('Unknown error');
     });
 
     it('should handle string body', () => {
       const result = handleApiError(400, 'Error string');
 
-      expect(result.error.code).toBe('VALIDATION_ERROR');
-      expect(result.error.message).toContain('Unknown error');
+      expect(result.code).toBe('VALIDATION_ERROR');
+      expect(result.message).toContain('Unknown error');
     });
   });
 
   describe('formatErrorForMcp', () => {
     it('should format error without suggestion', () => {
       const error: ErrorResponse = {
-        error: {
-          code: 'NOT_FOUND',
-          message: 'Resource not found',
-        },
+        code: 'NOT_FOUND',
+        message: 'Resource not found',
       };
 
       const result = formatErrorForMcp(error);
@@ -149,11 +145,9 @@ describe('errors', () => {
 
     it('should format error with suggestion', () => {
       const error: ErrorResponse = {
-        error: {
-          code: 'RATE_LIMITED',
-          message: 'Too many requests',
-          suggestion: 'Wait 60 seconds',
-        },
+        code: 'RATE_LIMITED',
+        message: 'Too many requests',
+        suggestion: 'Wait 60 seconds',
       };
 
       const result = formatErrorForMcp(error);
@@ -165,11 +159,9 @@ describe('errors', () => {
 
     it('should handle empty suggestion', () => {
       const error: ErrorResponse = {
-        error: {
-          code: 'API_ERROR',
-          message: 'Server error',
-          suggestion: '',
-        },
+        code: 'API_ERROR',
+        message: 'Server error',
+        suggestion: '',
       };
 
       const result = formatErrorForMcp(error);
@@ -182,7 +174,7 @@ describe('errors', () => {
   describe('getErrorResponse', () => {
     it('should return response error when present', () => {
       const error: ErrorResponse = {
-        error: { code: 'NOT_FOUND', message: 'Not found' },
+        code: 'NOT_FOUND', message: 'Not found',
       };
       const result = getErrorResponse({ error });
 
@@ -192,20 +184,66 @@ describe('errors', () => {
     it('should return default error when response error is undefined', () => {
       const result = getErrorResponse({});
 
-      expect(result.error.code).toBe('API_ERROR');
-      expect(result.error.message).toBe('Unknown API error');
-      expect(result.error.suggestion).toContain('API key');
+      expect(result.code).toBe('API_ERROR');
+      expect(result.message).toBe('Unknown API error');
+      expect(result.suggestion).toContain('API key');
     });
 
     it('should return default error when response error is null-ish', () => {
       const result = getErrorResponse({ error: undefined });
 
-      expect(result.error.code).toBe('API_ERROR');
+      expect(result.code).toBe('API_ERROR');
+    });
+
+    it('should return independent copies of the default error', () => {
+      const a = getErrorResponse({});
+      const b = getErrorResponse({});
+
+      expect(a).toEqual(b);
+      expect(a).not.toBe(b);
+    });
+  });
+
+  describe('mcpErrorResult', () => {
+    it('should return MCP error result with error response', () => {
+      const response = {
+        error: { code: 'NOT_FOUND', message: 'Not found' } as ErrorResponse,
+      };
+      const result = mcpErrorResult(response);
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].type).toBe('text');
+      expect(result.content[0].text).toBe('Error [NOT_FOUND]: Not found');
+    });
+
+    it('should include suggestion in MCP error result when present', () => {
+      const response = {
+        error: {
+          code: 'RATE_LIMITED',
+          message: 'Too many requests',
+          suggestion: 'Wait 60 seconds',
+        } as ErrorResponse,
+      };
+      const result = mcpErrorResult(response);
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe(
+        'Error [RATE_LIMITED]: Too many requests\nSuggestion: Wait 60 seconds'
+      );
+    });
+
+    it('should return MCP error result with default error when no error present', () => {
+      const result = mcpErrorResult({});
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('API_ERROR');
+      expect(result.content[0].text).toContain('Unknown API error');
     });
   });
 
   describe('destructiveOperationGuard', () => {
     const originalEnv = process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE;
+    const originalApiKey = process.env.PIPEDRIVE_API_KEY;
 
     afterEach(() => {
       if (originalEnv === undefined) {
@@ -213,14 +251,21 @@ describe('errors', () => {
       } else {
         process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = originalEnv;
       }
+      if (originalApiKey === undefined) {
+        delete process.env.PIPEDRIVE_API_KEY;
+      } else {
+        process.env.PIPEDRIVE_API_KEY = originalApiKey;
+      }
     });
 
     it('should return null when PIPEDRIVE_ENABLE_DESTRUCTIVE is true', () => {
+      process.env.PIPEDRIVE_API_KEY = VALID_API_KEY;
       process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = 'true';
       expect(destructiveOperationGuard()).toBeNull();
     });
 
     it('should return MCP error response when env var is unset', () => {
+      process.env.PIPEDRIVE_API_KEY = VALID_API_KEY;
       delete process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE;
       const result = destructiveOperationGuard();
 
@@ -231,6 +276,7 @@ describe('errors', () => {
     });
 
     it('should return MCP error response when env var is false', () => {
+      process.env.PIPEDRIVE_API_KEY = VALID_API_KEY;
       process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = 'false';
       const result = destructiveOperationGuard();
 
@@ -239,6 +285,7 @@ describe('errors', () => {
     });
 
     it('should treat TRUE (uppercase) as disabled', () => {
+      process.env.PIPEDRIVE_API_KEY = VALID_API_KEY;
       process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = 'TRUE';
       const result = destructiveOperationGuard();
 
@@ -247,6 +294,7 @@ describe('errors', () => {
     });
 
     it('should treat 1 as disabled', () => {
+      process.env.PIPEDRIVE_API_KEY = VALID_API_KEY;
       process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = '1';
       const result = destructiveOperationGuard();
 
@@ -255,6 +303,7 @@ describe('errors', () => {
     });
 
     it('should treat yes as disabled', () => {
+      process.env.PIPEDRIVE_API_KEY = VALID_API_KEY;
       process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = 'yes';
       const result = destructiveOperationGuard();
 
@@ -263,6 +312,7 @@ describe('errors', () => {
     });
 
     it('should include suggestion in error response', () => {
+      process.env.PIPEDRIVE_API_KEY = VALID_API_KEY;
       delete process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE;
       const result = destructiveOperationGuard();
 

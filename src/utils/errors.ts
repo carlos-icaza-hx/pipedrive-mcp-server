@@ -2,12 +2,12 @@
  * Error handling utilities for Pipedrive MCP Server
  */
 
+import { getConfig } from "../config.js";
+
 export interface ErrorResponse {
-  error: {
-    code: string;
-    message: string;
-    suggestion?: string;
-  };
+  code: string;
+  message: string;
+  suggestion?: string;
 }
 
 export type ErrorCode =
@@ -30,11 +30,9 @@ export function createErrorResponse(
   suggestion?: string
 ): ErrorResponse {
   return {
-    error: {
-      code,
-      message,
-      suggestion,
-    },
+    code,
+    message,
+    suggestion,
   };
 }
 
@@ -89,7 +87,7 @@ export function handleApiError(status: number, body: unknown): ErrorResponse {
  * Returns an MCP tool error response if destructive operations are disabled, null if allowed.
  */
 export function destructiveOperationGuard(): { content: { type: "text"; text: string }[]; isError: true } | null {
-  const enabled = process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE === "true";
+  const enabled = getConfig().enableDestructive;
   if (enabled) return null;
 
   return {
@@ -105,16 +103,14 @@ export function destructiveOperationGuard(): { content: { type: "text"; text: st
   };
 }
 
-const DEFAULT_API_ERROR: ErrorResponse = {
-  error: {
-    code: "API_ERROR",
-    message: "Unknown API error",
-    suggestion: "Check your API key and network connection",
-  },
-};
+const DEFAULT_API_ERROR = {
+  code: "API_ERROR",
+  message: "Unknown API error",
+  suggestion: "Check your API key and network connection",
+} as const satisfies ErrorResponse;
 
 export function getErrorResponse(response: { error?: ErrorResponse }): ErrorResponse {
-  return response.error ?? DEFAULT_API_ERROR;
+  return response.error ?? { ...DEFAULT_API_ERROR };
 }
 
 /**
@@ -122,10 +118,23 @@ export function getErrorResponse(response: { error?: ErrorResponse }): ErrorResp
  */
 export function formatErrorForMcp(error: ErrorResponse): string {
   const parts = [
-    `Error [${error.error.code}]: ${error.error.message}`,
+    `Error [${error.code}]: ${error.message}`,
   ];
-  if (error.error.suggestion) {
-    parts.push(`Suggestion: ${error.error.suggestion}`);
+  if (error.suggestion) {
+    parts.push(`Suggestion: ${error.suggestion}`);
   }
   return parts.join("\n");
+}
+
+/**
+ * Wraps a failed API response as a complete MCP tool error result.
+ */
+export function mcpErrorResult(response: { error?: ErrorResponse }): { content: { type: "text"; text: string }[]; isError: true } {
+  return {
+    content: [{
+      type: "text" as const,
+      text: formatErrorForMcp(getErrorResponse(response)),
+    }],
+    isError: true,
+  };
 }

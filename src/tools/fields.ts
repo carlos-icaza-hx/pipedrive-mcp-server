@@ -15,7 +15,7 @@ import {
   type GetFieldParams,
 } from "../schemas/fields.js";
 import { buildPaginationParamsV1, extractPaginationV1 } from "../utils/pagination.js";
-import { formatErrorForMcp, getErrorResponse } from "../utils/errors.js";
+import { mcpErrorResult } from "../utils/errors.js";
 import { createListSummary } from "../utils/formatting.js";
 
 /**
@@ -33,13 +33,7 @@ export async function listOrganizationFields(params: ListOrganizationFieldsParam
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   const fields = response.data;
@@ -75,13 +69,7 @@ export async function listDealFields(params: ListDealFieldsParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   const fields = response.data;
@@ -117,13 +105,7 @@ export async function listPersonFields(params: ListPersonFieldsParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   const fields = response.data;
@@ -178,13 +160,7 @@ export async function getField(params: GetFieldParams) {
   );
 
   if (!response.success || !response.data) {
-    return {
-      content: [{
-        type: "text" as const,
-        text: formatErrorForMcp(getErrorResponse(response)),
-      }],
-      isError: true,
-    };
+    return mcpErrorResult(response);
   }
 
   const field = response.data.find(f => f.key === params.key);

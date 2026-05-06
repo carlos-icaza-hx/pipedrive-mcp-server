@@ -19,19 +19,17 @@ describe('formatting', () => {
 
     it('should indicate more available', () => {
       const result = createListSummary('deal', 50, true);
-      expect(result).toContain('More available with cursor pagination');
+      expect(result).toBe('Found 50 deals. More available with cursor pagination.');
     });
 
     it('should include additional info', () => {
       const result = createListSummary('deal', 25, false, '$1.2M total');
-      expect(result).toContain('($1.2M total)');
+      expect(result).toBe('Found 25 deals. ($1.2M total).');
     });
 
-    it('should combine all parts', () => {
+    it('should combine all parts without double period', () => {
       const result = createListSummary('person', 100, true, '5 new');
-      expect(result).toContain('100 persons');
-      expect(result).toContain('5 new');
-      expect(result).toContain('More available');
+      expect(result).toBe('Found 100 persons. (5 new). More available with cursor pagination.');
     });
 
     it('should work with zero count', () => {
