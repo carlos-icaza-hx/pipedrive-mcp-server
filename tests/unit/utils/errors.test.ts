@@ -216,6 +216,22 @@ describe('errors', () => {
       expect(result.content[0].text).toBe('Error [NOT_FOUND]: Not found');
     });
 
+    it('should include suggestion in MCP error result when present', () => {
+      const response = {
+        error: {
+          code: 'RATE_LIMITED',
+          message: 'Too many requests',
+          suggestion: 'Wait 60 seconds',
+        } as ErrorResponse,
+      };
+      const result = mcpErrorResult(response);
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe(
+        'Error [RATE_LIMITED]: Too many requests\nSuggestion: Wait 60 seconds'
+      );
+    });
+
     it('should return MCP error result with default error when no error present', () => {
       const result = mcpErrorResult({});
 

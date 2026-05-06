@@ -126,12 +126,15 @@ export function formatErrorForMcp(error: ErrorResponse): string {
   return parts.join("\n");
 }
 
-export function mcpErrorResult(response: { error?: ErrorResponse }) {
+/**
+ * Wraps a failed API response as a complete MCP tool error result.
+ */
+export function mcpErrorResult(response: { error?: ErrorResponse }): { content: { type: "text"; text: string }[]; isError: true } {
   return {
     content: [{
       type: "text" as const,
       text: formatErrorForMcp(getErrorResponse(response)),
     }],
-    isError: true as const,
+    isError: true,
   };
 }
