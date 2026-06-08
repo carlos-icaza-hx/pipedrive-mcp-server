@@ -1,43 +1,39 @@
-# Session Handoff: P0 v1-to-v2 data-shape batch (#42-#46)
+# Session Handoff: complete the v1-to-v2 migration (#47), then #48-#50
 
-Last updated: 2026-06-08. Repo: `main` (Zod 4.4 / TypeScript 6 / Vitest 4), single worktree `~/repos/pipedrive-mcp-server`.
+Last updated: 2026-06-08. Repo: `main` @ `f9667ea` (Zod 4.4 / TypeScript 6 / Vitest 4), single worktree `~/repos/pipedrive-mcp-server`, clean.
+
+## Done this session (do NOT redo)
+
+- **P0 data-shape batch #42-#46 SHIPPED** via PRs #54-#58 (squash-merged to `main @ f9667ea`). Build green, **786 tests green**, CI green Node 20/22. Issues CLOSED (`status:done`). All worktrees/branches/locks cleaned up.
+  - #42 persons `emails`/`phones` arrays · #43 projects `person_ids`/`org_ids`/`label_ids` · #44 orgs `address` object · #45 activities `location` object + `done` boolean · #46 deals dropped invalid `all_not_deleted`.
 
 ## Next action
 
-Implement the 5 P0 data-shape bugs **#42-#46** off `main` via the firewalled pipeline. Each issue's full plan is posted as a comment on the issue and committed at `docs/plans/2026-06-08-issue-4{2..6}-*.md`. All five are at `status:plan-review`.
+Run **#47** through the firewalled pipeline. It is at `status:assess` - **no plan exists yet**, so this STARTS AT THE PLAN STAGE (policy: auto-plan, gate-merge). Re-run `gh issue list --state open` first.
 
-Re-run `gh issue list --state open` first in case anything changed.
+**#47 = complete the v1-to-v2 migration (P1, pre-sunset critical):**
+- search -> v2 `/{entity}/search` endpoints
+- project tasks -> v2 `/tasks`
+- product / activity / project fields -> v2 (finishes #10)
+- archiveProject -> `POST /archive`
 
-## Already done (do not redo)
+Authoritative spec: `docs/api/openapi-v2.yaml` (vendored v2). Bind every endpoint/shape to it - the P0 batch proved plans must verify against the spec, not memory.
 
-- **#16 deps** DONE (Zod 4 / TS 6 / Vitest 4 / MCP SDK) via PRs #41 + #52.
-- **v1-to-v2 review** filed #42-#51 (tracker #51). Findings: `docs/residual-review-findings/v1-v2-migration-completeness-review.md`.
-- **OpenAPI specs vendored**: `docs/api/openapi-v{1,2}.yaml` (authoritative source of truth).
-- **P0 plan stage** DONE: 5 plans posted to #42-#46 + committed under `docs/plans/`; a Zod-4 correction comment is on each issue; the `review/v1-v2-migration` branch was merged via #53 and deleted.
+Decide up front whether #47 is one PR or split per sub-area (search / tasks / fields / archive). Likely splittable into disjoint files for parallelism, but confirm footprints before parallelizing.
 
-## Per-issue summary (authoritative detail is in each issue's posted plan)
+## Pipeline + gates (per memory [[backlog-orchestration-workflow]])
 
-- **#42 persons** - KEY RENAME `email`->`emails`, `phone`->`phones` (schema fields + tool body + tool `inputSchema` + tests). Schema values are already arrays; this is not a scalar-to-array change. Sole owner of the shared test helpers (`tests/helpers/mockFetch.ts`, `fixtures.ts`) this batch.
-- **#43 projects** - scalar `org_id`/`person_id` -> `org_ids`/`person_ids` integer arrays; `labels` -> `label_ids` (schema + tool body + `inputSchema` + tests). Regression from #14.
-- **#44 organizations** - `address` string -> object (define a LOCAL `AddressSchema`, 10 optional string subfields, per openapi-v2.yaml 10780-10814). Not in `common.ts`.
-- **#45 activities** - `location` string -> object (LOCAL `LocationSchema`, openapi 466-499); `done` send boolean not `1`/`0`; remove `.default(false)`; fix the list-filter serialization. Not in `common.ts`.
-- **#46 deals** - remove `all_not_deleted` from `DealStatusSchema` (`common.ts:68`) + both deals `inputSchema` enums + 2 unit tests (`deals.test.ts:51`, `common.test.ts:223`). Handler already omits `status` when undefined (no logic change). Owns `common.ts` this batch.
+Per issue: plan(opus, writes+commits plan to `docs/plans/`, posts to issue) -> implement(sonnet, write-only, no build/test/self-review) -> verify(orchestrator runs `npm run build` + `npm test`) -> review(separate `code-reviewer` per diff vs spec) -> fix(fresh agent if needed) -> one PR (`Closes #N`), squash-merge, **STOP at the merge gate for the user**. Labels: assess -> plan -> implement -> review -> merge -> done. Worktree `.claude/menehune/worktrees/agent-N-slug` off `origin/main`, symlink `node_modules` (no dep changes), branch `agent/N-slug`, lock `.claude/menehune/locks/N.lock`. Denylist before push: `.env*`, `package-lock.json`, `bundle/`, `*.mcpb`, `node_modules`. After merge: `git worktree remove` BEFORE `git branch -D`; `git push origin --delete <branch>` (gh's `--delete-branch` fails to delete the local branch while the worktree holds it, and then skips the remote delete - delete the remote branch explicitly).
 
-## Parallel-safe (disjoint footprints)
+## Known gotchas (carried from P0)
 
-Each issue touches only its own entity files + its own tests. `#46` owns `common.ts`; `#44`/`#45` define their object schemas locally; `#42` owns the shared test helpers. No issue touches `src/tools/index.ts`.
+- **Zod 4.4.3 on main** (NOT Zod 3 - older/auto-generated plan bodies may say "Zod 3.25 / do not migrate"; that is STALE). Match existing idioms: `z.email()`, `z.record(z.string(), z.unknown())`. Do NOT downgrade them. Brief implementers to override any Zod-3 note in the plan.
+- **False-green hazard:** `tsconfig` excludes `**/*.test.ts` (tests are never type-checked) and per-entity/functional tests call handlers DIRECTLY (bypass the dispatcher's Zod). A green suite alone does NOT prove correctness. Real guards = UNIT schema tests (`Schema.parse`) + integration tests asserting the wire shape (`JSON.parse(options.body)` / the URL) + `dispatcher.test.ts`. Every plan must flip its false-greens and verify assertions vs `docs/api/openapi-v2.yaml`. Have each reviewer run the adversarial proof (revert src to origin/main with new tests kept -> confirm guards fail pre-fix).
+- `tests/functional/crud-flows.test.ts:82` (persons `email`) + `:160` (orgs string `address`) carry latent v1-shape inputs left from P0 - cleanup tracked under **#49**, out of scope for #47.
 
-## False-green test caveat (important)
+## After #47
 
-- `tsconfig` excludes `**/*.test.ts` and Vitest is transpile-only, so tests are never type-checked.
-- Per-entity and functional tests call handlers DIRECTLY, bypassing the dispatcher's Zod validation.
-- Therefore schema tightenings do NOT fail those tests on their own. The real guards: UNIT schema tests (`Schema.parse`) for Zod shape, integration tests for the handler body wire shape, `dispatcher.test.ts` for the boundary. Each plan flips its unit + integration false-greens; verify assertions against `docs/api/openapi-v2.yaml`, not just a green suite.
-- `tests/functional/crud-flows.test.ts` has latent v1-shape inputs (`:82` persons `email`, `:160` orgs string `address`) that stay PASSING post-fix; leave out of scope, track cleanup under #49.
-
-## Pipeline + gates (per [[backlog-orchestration-workflow]])
-
-Per issue, in parallel: fresh worktree off `origin/main` (`.claude/menehune/worktrees/agent-N-slug`, branch `agent/N-slug`, symlink `node_modules` - no dep changes) -> implement (write-only, reads the posted plan, matches Zod 4 idioms: `z.email()`, `z.record(z.string(), z.unknown())`) -> verify (orchestrator runs `npm run build` + `npm test`) -> review (`code-reviewer` per diff vs the spec) -> fix (fresh agent) -> one PR each (`Closes #N`), squash-merge, **stop at each merge gate for the user**. Labels: `plan-review` -> `implement` -> ... -> `done`. Denylist before push: `.env*`, `package-lock.json`, `bundle/`, `*.mcpb`, `node_modules`.
-
-## After P0
-
-#47 complete migration (search/project-tasks/fields to v2, archiveProject), #48 polish, #49 infra/test hardening (OpenAPI contract tests, client version safety, v1-only docs, verify the 2026-07-31 sunset date, crud-flows cleanup), #50 coverage expansion (Products first).
+- **#48** param cleanup + leads gaps + mail pagination (P2).
+- **#49** infra/test hardening: openapi contract tests, client `version` safety, document v1-only-no-v2 capabilities (notes/mail/users CRUD/leads CRUD), **VERIFY the 2026-07-31 sunset date**, crud-flows cleanup (P2).
+- **#50** coverage expansion (Products entity first; deal/project sub-resources; followers; config writes) (P3).
+- Tracker epic: **#51**.
