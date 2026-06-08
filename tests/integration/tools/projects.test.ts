@@ -75,10 +75,13 @@ describe('projects tools', () => {
       const mockFn = mockApiSuccess([projectFixture]);
       const { listProjects } = await getProjectsTools();
 
-      await listProjects({ board_id: 1, phase_id: 2, status: 'open', filter_id: 3 });
+      // board_id/include_fields passed directly (bypassing Zod) so the assertions
+      // guard the handler-line removals, not just the schema strip.
+      await listProjects({ phase_id: 2, status: 'open', filter_id: 3, board_id: 1, include_fields: 'tasks' } as Record<string, unknown>);
 
       const [url] = mockFn.mock.calls[0];
-      expect(url).toContain('board_id=1');
+      expect(url).not.toContain('board_id');
+      expect(url).not.toContain('include_fields');
       expect(url).toContain('phase_id=2');
       expect(url).toContain('status=open');
       expect(url).toContain('filter_id=3');
@@ -405,14 +408,14 @@ describe('projects tools', () => {
       expect(url).toContain('exact_match=true');
     });
 
-    it('should pass include_fields when provided', async () => {
+    it('should not send include_fields (invalid in v2 search)', async () => {
       const mockFn = mockApiSuccess({ items: [] });
       const { searchProjects } = await getProjectsTools();
 
-      await searchProjects({ term: 'test', include_fields: 'tasks' });
+      await searchProjects({ term: 'test', include_fields: 'tasks' } as Record<string, unknown>);
 
       const [url] = mockFn.mock.calls[0];
-      expect(url).toContain('include_fields=tasks');
+      expect(url).not.toContain('include_fields');
     });
 
     it('should return isError on API error', async () => {

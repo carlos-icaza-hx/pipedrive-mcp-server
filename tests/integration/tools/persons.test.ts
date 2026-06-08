@@ -41,17 +41,19 @@ describe('persons tools', () => {
       const mockFn = mockApiSuccess([]);
       const { listPersons } = await getPersonsTools();
 
+      // first_char is passed directly (bypassing Zod) so the assertion guards the
+      // handler-line removal, not just the schema strip — revert-proof at handler level.
       await listPersons({
         owner_id: 1,
         org_id: 5,
-        first_char: 'A',
         sort_by: 'update_time',
-      });
+        first_char: 'A',
+      } as Record<string, unknown>);
 
       const [url] = mockFn.mock.calls[0];
       expect(url).toContain('owner_id=1');
       expect(url).toContain('org_id=5');
-      expect(url).toContain('first_char=A');
+      expect(url).not.toContain('first_char');
     });
 
     it('should handle pagination', async () => {

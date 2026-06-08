@@ -40,24 +40,30 @@ describe('activities tools', () => {
       const mockFn = mockApiSuccess([]);
       const { listActivities } = await getActivitiesTools();
 
+      // The removed v2 list filters are passed directly (bypassing Zod) so the
+      // not.toContain assertions guard the handler-line removals, not just schema strip.
       await listActivities({
         owner_id: 1,
         deal_id: 5,
         person_id: 10,
-        type: 'call',
         done: false,
-        start_date: '2024-01-01',
-        end_date: '2024-12-31',
         sort_by: 'due_date',
-      });
+        type: 'call',
+        start_date: '2024-01-01',
+        end_date: '2024-01-02',
+        project_id: 1,
+      } as Record<string, unknown>);
 
       const [url] = mockFn.mock.calls[0];
       expect(url).toContain('owner_id=1');
       expect(url).toContain('deal_id=5');
       expect(url).toContain('person_id=10');
-      expect(url).toContain('type=call');
       expect(url).toContain('done=false');
       expect(url).not.toContain('done=0');
+      expect(url).not.toContain('type=');
+      expect(url).not.toContain('start_date');
+      expect(url).not.toContain('end_date');
+      expect(url).not.toContain('project_id');
     });
 
     it('should handle pagination', async () => {
