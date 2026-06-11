@@ -2,7 +2,7 @@
 
 Last updated: 2026-06-11. Repo: `main` @ `9277179` (Zod 4.4.3 / TypeScript 6 / Vitest 4), single clean worktree `~/repos/pipedrive-mcp-server`. Build green (`tsc`), **1674 tests green**, CI green Node 20/22. No agent worktrees, branches, or locks outstanding. **No open issues.**
 
-**The v1→v2 API migration completeness epic (#51) is fully shipped and closed.** #70 config-writes was the last unit. There is no pending backlog work — this handoff carries forward the durable gotchas and the two genuinely-open follow-ups below.
+**The v1→v2 API migration completeness epic (#51) is fully shipped and closed.** #70 config-writes was the last unit. The only open work is two follow-ups now tracked as **#75** (contract-harness coverage, P2) and **#76** (installments smoke test, P3) — both `status:assess`. This handoff carries forward the durable gotchas.
 
 ## Done this session (do NOT redo)
 
@@ -18,10 +18,10 @@ Last updated: 2026-06-11. Repo: `main` @ `9277179` (Zod 4.4.3 / TypeScript 6 / V
 - **#67 — Deal sub-resources** → PR #72 (`f89aca0`). discounts (`discount_id` UUID, no list pagination); installments collection-level `/deals/installments` with comma-joined `deal_ids`; convert-to-lead gated + empty `{}` POST + status-poll.
 - **#68 — Project sub-entities** → PR #73 (`ab51d5c`). tasks/boards/phases/templates/project-fields/archived/permittedUsers/changelog; task `done`/`milestone` write as int `0|1` (GET returns bool) via `z.preprocess`; `/phases` list requires `board_id`; boards/phases have no pagination; `permittedUsers` returns flat `integer[]`.
 
-## Open follow-ups (only these remain — no issue tracks them)
+## Open follow-ups (now tracked on the board)
 
-- **#67 installments smoke test:** one-time manual smoke of the installments path vs a Growth+ sandbox (CI only mocks it).
-- **Contract-harness coverage (deferred P2):** Products/fields are NOT in `tests/contract/`. When next touching products/fields, add `getProducts`/`searchProducts` to `requestParams.contract.test.ts` and `addProduct`/`updateProduct` to `requestBody.contract.test.ts`. (#70's field writes are also un-covered there.)
+- **#75 (P2, `status:assess`) — contract-harness coverage:** Products/fields are NOT in `tests/contract/`. Add `getProducts`/`searchProducts` to `requestParams.contract.test.ts` and `addProduct`/`updateProduct` to `requestBody.contract.test.ts`; #70's field-write + options + pipeline/stage write bodies are also un-covered there. Pure test work, no live API.
+- **#76 (P3, `status:assess`) — installments smoke test:** one-time manual smoke of the deal-installments path (from #67) vs a Growth+ Pipedrive sandbox (CI only mocks it; installments are Growth-plan-and-above).
 
 ## Known gotchas (carried — still apply to any future work)
 
