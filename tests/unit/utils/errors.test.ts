@@ -11,6 +11,9 @@ import {
   destructiveOperationGuard,
   mcpErrorResult,
   mcpErrorFromCode,
+  redactSecrets,
+  boundErrorMessage,
+  MAX_ERROR_MESSAGE_LENGTH,
   type ErrorResponse,
 } from '../../../src/utils/errors.js';
 
@@ -128,6 +131,148 @@ describe('errors', () => {
 
       expect(result.code).toBe('VALIDATION_ERROR');
       expect(result.message).toContain('Unknown error');
+    });
+
+    describe('reflected backend message is bounded and redacted (U5, F4)', () => {
+      const TOKEN = 'c'.repeat(40);
+
+      it('length-bounds an over-long backend message in the 400 branch', () => {
+        const long = 'x'.repeat(MAX_ERROR_MESSAGE_LENGTH + 200);
+        const result = handleApiError(400, { error: long });
+
+        expect(result.code).toBe('VALIDATION_ERROR');
+        expect(result.message).toContain('… [truncated]');
+        // The whole message is "Invalid request: " + bounded body; the body itself
+        // must not exceed the cap (+ marker).
+        expect(result.message.length).toBeLessThanOrEqual(
+          'Invalid request: '.length + MAX_ERROR_MESSAGE_LENGTH + '… [truncated]'.length
+        );
+      });
+
+      it('length-bounds an over-long backend message in the default branch', () => {
+        const long = 'y'.repeat(MAX_ERROR_MESSAGE_LENGTH + 200);
+        const result = handleApiError(500, { error: long });
+
+        expect(result.code).toBe('API_ERROR');
+        expect(result.message).toContain('… [truncated]');
+      });
+
+      it('redacts a token-like value reflected in the 400 backend body', () => {
+        const result = handleApiError(400, {
+          error: `request to https://api.pipedrive.com/v1/x?api_token=${TOKEN} failed`,
+        });
+
+        expect(result.message).not.toContain(TOKEN);
+        expect(result.message).toContain('[REDACTED]');
+      });
+
+      it('redacts a token-like value reflected in the default backend body', () => {
+        const result = handleApiError(500, {
+          error: `upstream https://api.pipedrive.com/v1/x?api_token=${TOKEN}`,
+        });
+
+        expect(result.message).not.toContain(TOKEN);
+        expect(result.message).toContain('[REDACTED]');
+      });
+
+      it('strips control characters from a reflected backend body', () => {
+        const result = handleApiError(400, { error: 'line1\nline2\rinjected' });
+
+        expect(result.message).not.toMatch(/[\n\r]/);
+      });
+
+      it('leaves the fixed 401/403/404/429 strings unchanged (no reflection)', () => {
+        // These branches never reflect the backend body, so a token-like or
+        // over-long body must not appear and must not perturb the fixed copy.
+        const noisy = { error: `api_token=${TOKEN} ` + 'z'.repeat(1000) };
+
+        expect(handleApiError(401, noisy).message).toBe('API key is invalid or expired');
+        expect(handleApiError(403, noisy).message).toBe('Access denied to this resource');
+        expect(handleApiError(404, noisy).message).toBe('Resource not found');
+        expect(handleApiError(429, noisy).message).toBe('Rate limit exceeded');
+      });
+    });
+  });
+
+  describe('redactSecrets (U2, F1)', () => {
+    const TOKEN = 'a'.repeat(40);
+
+    it('redacts the literal secret value when it appears bare', () => {
+      const result = redactSecrets(`the key is ${TOKEN} ok`, TOKEN);
+      expect(result).not.toContain(TOKEN);
+      expect(result).toContain('[REDACTED]');
+    });
+
+    it('redacts every occurrence of the literal secret', () => {
+      const result = redactSecrets(`${TOKEN} and again ${TOKEN}`, TOKEN);
+      expect(result).not.toContain(TOKEN);
+      expect(result.match(/\[REDACTED\]/g)).toHaveLength(2);
+    });
+
+    it('redacts the secret embedded in a v1 request URL', () => {
+      const url = `https://api.pipedrive.com/v1/notes?api_token=${TOKEN}`;
+      const result = redactSecrets(`request to ${url} failed`, TOKEN);
+      expect(result).not.toContain(TOKEN);
+      expect(result).toContain('[REDACTED]');
+    });
+
+    it('redacts the api_token= query form even without the literal secret', () => {
+      const url = 'https://api.pipedrive.com/v1/notes?api_token=somethingsecret&limit=10';
+      const result = redactSecrets(`request to ${url} failed`);
+      expect(result).toContain('api_token=[REDACTED]');
+      expect(result).not.toContain('somethingsecret');
+      // Trailing query params after the token are preserved.
+      expect(result).toContain('limit=10');
+    });
+
+    it('redacts an x-api-token header value even without the literal secret', () => {
+      const result = redactSecrets('headers: { x-api-token: someheaderval }');
+      expect(result).toContain('x-api-token');
+      expect(result).not.toContain('someheaderval');
+      expect(result).toContain('[REDACTED]');
+    });
+
+    it('does NOT match the v2 header name as the v1 query param', () => {
+      // `x-api-token` (hyphen) must not be redacted by the `api_token=` (underscore) net.
+      const result = redactSecrets('x-api-token present');
+      expect(result).toContain('x-api-token present');
+    });
+
+    it('replaces control characters and newlines with spaces (no log-line forging)', () => {
+      const result = redactSecrets('line1\nline2\r\ttab\x00null');
+      expect(result).not.toMatch(/[\n\r\t\x00]/);
+      expect(result).toBe('line1 line2  tab null');
+    });
+
+    it('is a no-op on a clean string', () => {
+      expect(redactSecrets('a perfectly clean message')).toBe('a perfectly clean message');
+    });
+
+    it('handles an undefined knownSecret without throwing', () => {
+      expect(() => redactSecrets('some message', undefined)).not.toThrow();
+    });
+  });
+
+  describe('boundErrorMessage (U2/U5)', () => {
+    const TOKEN = 'b'.repeat(40);
+
+    it('redacts the token', () => {
+      const result = boundErrorMessage(`failed with ${TOKEN}`, TOKEN);
+      expect(result).not.toContain(TOKEN);
+      expect(result).toContain('[REDACTED]');
+    });
+
+    it('truncates messages longer than the cap with an explicit marker', () => {
+      const long = 'x'.repeat(MAX_ERROR_MESSAGE_LENGTH + 100);
+      const result = boundErrorMessage(long);
+      expect(result.length).toBeLessThanOrEqual(MAX_ERROR_MESSAGE_LENGTH + '… [truncated]'.length);
+      expect(result).toContain('… [truncated]');
+    });
+
+    it('leaves short messages unchanged (no marker)', () => {
+      const result = boundErrorMessage('short message');
+      expect(result).toBe('short message');
+      expect(result).not.toContain('[truncated]');
     });
   });
 

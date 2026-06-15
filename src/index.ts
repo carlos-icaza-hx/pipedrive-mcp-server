@@ -25,9 +25,10 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import { validateConfig } from "./config.js";
+import { validateConfig, getCachedApiToken } from "./config.js";
 import { toolDefinitions, getToolHandler, getToolSchema } from "./tools/index.js";
-import { mcpErrorFromCode } from "./utils/errors.js";
+import { mcpErrorFromCode, boundErrorMessage } from "./utils/errors.js";
+import { MAX_TOOL_RESPONSE_CHARS, measureResultTextLength } from "./utils/formatting.js";
 
 // Server metadata
 const SERVER_NAME = "pipedrive-mcp-server";
@@ -55,34 +56,69 @@ export async function handleCallTool(request: { params: { name: string; argument
     );
   }
 
+  // Fail-closed: never dispatch to a handler with no attached schema. Every
+  // registered tool attaches one (no-arg tools use `z.object({})`), so a missing
+  // schema is a registration bug, not a no-arg tool — passing `args` through
+  // unvalidated would let arbitrary input reach the handler (F7/KTD5). The
+  // schema-presence invariant test in tests/unit/gen-docs.test.ts catches an
+  // un-schema'd tool at build time, so this branch is unreachable in practice.
+  if (!schema) {
+    console.error(`[${SERVER_NAME}] No input schema registered for tool: ${name}`);
+    return mcpErrorFromCode(
+      "VALIDATION_ERROR",
+      `No input schema registered for tool: ${name}`,
+      "This tool cannot be invoked safely; report it as a server bug"
+    );
+  }
+
   try {
-    // Validate arguments with Zod schema
-    let validatedArgs = args || {};
-    if (schema) {
-      const parseResult = schema.safeParse(args);
-      if (!parseResult.success) {
-        const errors = parseResult.error.issues
-          .map(e => `${e.path.join(".")}: ${e.message}`)
-          .join("; ");
-        console.error(`[${SERVER_NAME}] Validation error: ${errors}`);
-        return mcpErrorFromCode(
-          "VALIDATION_ERROR",
-          `Invalid arguments: ${errors}`,
-          "Check the tool's inputSchema for required parameters"
-        );
-      }
-      validatedArgs = parseResult.data;
+    // Validate arguments with the tool's Zod schema (guaranteed present above).
+    const parseResult = schema.safeParse(args);
+    if (!parseResult.success) {
+      const errors = parseResult.error.issues
+        .map(e => `${e.path.join(".")}: ${e.message}`)
+        .join("; ");
+      console.error(`[${SERVER_NAME}] Validation error: ${errors}`);
+      return mcpErrorFromCode(
+        "VALIDATION_ERROR",
+        `Invalid arguments: ${errors}`,
+        "Check the tool's inputSchema for required parameters"
+      );
     }
+    const validatedArgs = parseResult.data;
 
     // Execute handler
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await handler(validatedArgs as any);
+
+    // Universal size backstop (F5/KTD8): bound the text that crosses into the
+    // model's context even for handlers not yet routed through
+    // `formatToolResponse`. Skip results already marked isError so an error is
+    // never double-wrapped, and return a well-formed structured error (never a
+    // mid-string cut of serialized JSON) so the result stays parseable.
+    if (!(result as { isError?: boolean })?.isError) {
+      const size = measureResultTextLength(result);
+      if (size > MAX_TOOL_RESPONSE_CHARS) {
+        console.error(`[${SERVER_NAME}] Response from ${name} exceeded size cap (${size} chars)`);
+        return mcpErrorFromCode(
+          "RESPONSE_TOO_LARGE",
+          `Tool response too large (${size} characters); it was withheld to protect the model's context window`,
+          "Narrow the query or use pagination (cursor/limit) to retrieve the data in smaller pages"
+        );
+      }
+    }
+
     return result;
   } catch (error) {
-    console.error(`[${SERVER_NAME}] Error executing ${name}:`, error);
+    const rawMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    // A thrown error can embed the API token or a filesystem path. Redact and
+    // length-bound it, and never pass the raw error object to console.error (its
+    // stack/cause can carry the same secrets) (F1/KTD3).
+    const safeMessage = boundErrorMessage(rawMessage, getCachedApiToken() ?? undefined);
+    console.error(`[${SERVER_NAME}] Error executing ${name}: ${safeMessage}`);
     return mcpErrorFromCode(
       "API_ERROR",
-      error instanceof Error ? error.message : "Unknown error occurred",
+      safeMessage,
       "Check your API key and network connection"
     );
   }
@@ -148,7 +184,11 @@ function isEntrypoint(): boolean {
 
 if (isEntrypoint()) {
   main().catch((error) => {
-    console.error(`[${SERVER_NAME}] Fatal error:`, error);
+    // Redact and length-bound like the dispatcher above; never pass the raw error
+    // object to console.error (its stack/cause can carry the token) (F1/KTD3).
+    const rawMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    const safeMessage = boundErrorMessage(rawMessage, getCachedApiToken() ?? undefined);
+    console.error(`[${SERVER_NAME}] Fatal error: ${safeMessage}`);
     process.exit(1);
   });
 }
