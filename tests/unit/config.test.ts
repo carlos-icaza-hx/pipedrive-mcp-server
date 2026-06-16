@@ -59,31 +59,33 @@ describe('config', () => {
       expect(() => getConfig()).toThrow(/Personal preferences > API/);
     });
 
-    it('should return enableDestructive false when env var is unset', () => {
-      setupEnvWithApiKey(VALID_API_KEY);
-      delete process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE;
+    describe('capability mode (U2)', () => {
+      beforeEach(() => {
+        setupEnvWithApiKey(VALID_API_KEY);
+      });
 
-      const config = getConfig();
+      it('reflects an explicit PIPEDRIVE_MODE across the three tiers', () => {
+        (['read-only', 'safe-write', 'full'] as const).forEach((mode) => {
+          process.env.PIPEDRIVE_MODE = mode;
+          expect(getConfig().mode).toBe(mode);
+        });
+      });
 
-      expect(config.enableDestructive).toBe(false);
-    });
+      it('derives the mode from PIPEDRIVE_ENABLE_DESTRUCTIVE when PIPEDRIVE_MODE is unset', () => {
+        delete process.env.PIPEDRIVE_MODE;
+        process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = 'true';
+        expect(getConfig().mode).toBe('full');
 
-    it('should return enableDestructive true when env var is "true"', () => {
-      setupEnvWithApiKey(VALID_API_KEY);
-      process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = 'true';
+        process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = 'false';
+        expect(getConfig().mode).toBe('safe-write');
 
-      const config = getConfig();
+        delete process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE;
+        expect(getConfig().mode).toBe('safe-write');
+      });
 
-      expect(config.enableDestructive).toBe(true);
-    });
-
-    it('should return enableDestructive false for non-"true" values', () => {
-      setupEnvWithApiKey(VALID_API_KEY);
-
-      ['TRUE', '1', 'yes', 'false'].forEach((value) => {
-        process.env.PIPEDRIVE_ENABLE_DESTRUCTIVE = value;
-        const config = getConfig();
-        expect(config.enableDestructive).toBe(false);
+      it('falls closed to read-only on an invalid PIPEDRIVE_MODE', () => {
+        process.env.PIPEDRIVE_MODE = 'garbage';
+        expect(getConfig().mode).toBe('read-only');
       });
     });
   });

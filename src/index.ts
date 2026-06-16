@@ -26,13 +26,21 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { validateConfig, getCachedApiToken } from "./config.js";
-import { toolDefinitions, getToolHandler, getToolSchema } from "./tools/index.js";
+import { toolDefinitions, getToolHandler, getToolSchema, getTool } from "./tools/index.js";
+import {
+  resolveCapabilityMode,
+  filterToolDefinitionsForMode,
+  isToolAllowedInMode,
+  capabilityModeStartupLines,
+} from "./capability-modes.js";
 import { mcpErrorFromCode, boundErrorMessage } from "./utils/errors.js";
 import { MAX_TOOL_RESPONSE_CHARS, measureResultTextLength } from "./utils/formatting.js";
 
 // Server metadata
 const SERVER_NAME = "pipedrive-mcp-server";
-const SERVER_VERSION = "2.0.0";
+// Exported so tests/unit/version-consistency.test.ts can assert it tracks package.json
+// (this string is hand-maintained and the release workflow only checks package.json).
+export const SERVER_VERSION = "2.1.0";
 
 /**
  * Dispatcher for CallToolRequest — extracted so tests can import and invoke it directly
@@ -46,13 +54,32 @@ export async function handleCallTool(request: { params: { name: string; argument
   // Get handler and schema
   const handler = getToolHandler(name);
   const schema = getToolSchema(name);
+  const mode = resolveCapabilityMode();
 
   if (!handler) {
     console.error(`[${SERVER_NAME}] Unknown tool: ${name}`);
+    // Scope the available-tools hint to the in-mode surface so a restricted-mode caller
+    // cannot discover hidden tool names by probing an invalid one (R6a).
+    const available = filterToolDefinitionsForMode(toolDefinitions, mode).map(t => t.name).join(", ");
     return mcpErrorFromCode(
       "VALIDATION_ERROR",
       `Unknown tool: ${name}`,
-      `Available tools: ${toolDefinitions.map(t => t.name).join(", ")}`
+      `Available tools: ${available}`
+    );
+  }
+
+  // Capability-mode backstop (R6): refuse an out-of-mode call before any handler runs,
+  // so hiding tools from tools/list is never the only guard. A name whose handler exists
+  // but is absent from the registry (e.g. a synthetic tool injected by a test that mocks
+  // only getToolHandler/getToolSchema) is not mode-classifiable, so getTool returns
+  // undefined and isToolAllowedInMode falls through to allowed (U1) — preserving the
+  // existing schema/handler path for those cases.
+  if (!isToolAllowedInMode(getTool(name), mode)) {
+    console.error(`[${SERVER_NAME}] Tool ${name} blocked by capability mode: ${mode}`);
+    return mcpErrorFromCode(
+      "MODE_RESTRICTED",
+      `Tool '${name}' is not available in capability mode '${mode}'`,
+      "This is an operator policy set via PIPEDRIVE_MODE (read-only < safe-write < full) and cannot be changed by the agent mid-session; ask the operator to widen the mode. Call tools/list to see the tools available in the current mode."
     );
   }
 
@@ -140,6 +167,12 @@ async function main() {
     console.error(`[${SERVER_NAME}] Configuration validated successfully.`);
   }
 
+  // Report the resolved capability mode once at startup, plus any deprecation/invalid-
+  // value notice (R9, R3). All string logic lives in the pure helper.
+  for (const line of capabilityModeStartupLines()) {
+    console.error(`[${SERVER_NAME}] ${line}`);
+  }
+
   // Create MCP server
   const server = new Server(
     {
@@ -153,11 +186,14 @@ async function main() {
     }
   );
 
-  // Register list tools handler
+  // Register list tools handler — expose only the tools reachable in the resolved mode
+  // (R5). The exported registry is left intact; filtering is additive (R7).
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-    console.error(`[${SERVER_NAME}] Listing ${toolDefinitions.length} tools`);
+    const mode = resolveCapabilityMode();
+    const tools = filterToolDefinitionsForMode(toolDefinitions, mode);
+    console.error(`[${SERVER_NAME}] Listing ${tools.length} tools (mode: ${mode})`);
     return {
-      tools: toolDefinitions,
+      tools,
     };
   });
 

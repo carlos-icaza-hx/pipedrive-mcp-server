@@ -12,7 +12,7 @@ An MCP (Model Context Protocol) server for Pipedrive CRM integration with Claude
 - **API v2-first.** Every entity uses Pipedrive's v2 REST API where it exists; v1 is used only for the capabilities that have no v2 equivalent (notes, mail, users, and leads CRUD). See [API Versioning](#api-versioning).
 - **Contract-tested against the real OpenAPI spec.** Request params, request bodies, and response shapes are checked against the vendored Pipedrive OpenAPI v2 definition (`docs/api/openapi-v2.yaml`) in `tests/contract/`, so the v2 tools can't silently drift from the documented API.
 - **Live-smoke verified.** The tool surface is broadly exercised against a real Pipedrive account (`scripts/smoke-coverage.ts`), with only API-unseedable surfaces (e.g. mail threads, project templates) left to manual checks. Coverage includes plan-gated endpoints such as Growth+ deal installments (`scripts/smoke-installments.ts`). Key write smokes (e.g. the task `is_done` flag) assert the field value actually changed on the wire, not just a 200.
-- **Destructive ops gated by default.** Deletes, conversions, and other irreversible writes (🔒 in the tool table) are disabled until you set `PIPEDRIVE_ENABLE_DESTRUCTIVE=true`, so the server is read-and-create only out of the box. Every tool also carries MCP annotations (`readOnlyHint`/`destructiveHint`/`idempotentHint`) so policy-aware clients can tell reads from writes from deletes.
+- **Server-enforced capability modes.** `PIPEDRIVE_MODE` picks a safety tier — `read-only`, `safe-write` (the default: reads + non-destructive writes), or `full` — and out-of-mode tools are both hidden from `tools/list` and refused if called directly. Deletes, conversions, and other irreversible writes (🔒 in the tool table) require `full`, so the server is read-and-create only out of the box. Every tool also carries MCP annotations (`readOnlyHint`/`destructiveHint`/`idempotentHint`) so policy-aware clients can tell reads from writes from deletes. See [Capability modes](#capability-modes).
 - **MIT licensed**, published with npm build provenance.
 
 **Honest limitations.** Transport is STDIO only today (a Streamable HTTP flag is planned), and auth is via a Pipedrive API key, which matches the local/self-hosted tier this server targets. There is no hosted OAuth offering yet.
@@ -71,10 +71,25 @@ export PIPEDRIVE_API_KEY="your-40-character-api-key"
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `PIPEDRIVE_API_KEY` | Yes | - | Your 40-character Pipedrive API token. |
-| `PIPEDRIVE_ENABLE_DESTRUCTIVE` | No | `false` | Set to `true` to enable destructive tools (🔒 in the table below: deletes, conversions, and other irreversible writes). Off by default so the server is read-and-create only until you opt in. |
+| `PIPEDRIVE_MODE` | No | `safe-write` | Server-enforced capability tier: `read-only` (reads only), `safe-write` (reads + non-destructive writes), or `full` (all tools, including destructive). Out-of-mode tools are hidden from `tools/list` and refused if called directly. Authoritative when set to a recognized value; a blank value is treated as unset (the default applies), an unrecognized value falls back to `read-only`. See [Capability modes](#capability-modes). |
+| `PIPEDRIVE_ENABLE_DESTRUCTIVE` | No | `false` | Legacy flag, superseded by `PIPEDRIVE_MODE`. When `PIPEDRIVE_MODE` is unset, `true` is treated as `full` and anything else as `safe-write`. Still honored for back-compat; prefer `PIPEDRIVE_MODE=full`. |
 | `PIPEDRIVE_IMAGE_BASE_DIR` | No | (unset) | Allowlisted directory the server may read product images from when `file_path` is passed to the image-upload tools. Filesystem reads are **disabled** unless this is set, and a `file_path` must resolve within it. Leave unset and pass `base64_data` if the caller cannot share the server's filesystem. See [SECURITY.md](SECURITY.md#operator-best-practices). |
 
-To enable destructive tools, add `"PIPEDRIVE_ENABLE_DESTRUCTIVE": "true"` to the `env` block in your `.mcp.json` (alongside `PIPEDRIVE_API_KEY`), or `export PIPEDRIVE_ENABLE_DESTRUCTIVE=true`. When unset, every 🔒 tool returns a `DESTRUCTIVE_DISABLED` error instead of acting.
+To enable destructive tools, set `PIPEDRIVE_MODE=full` (or, for back-compat, `PIPEDRIVE_ENABLE_DESTRUCTIVE=true`) in the `env` block of your `.mcp.json` alongside `PIPEDRIVE_API_KEY`. Below `full`, every 🔒 tool returns a `DESTRUCTIVE_DISABLED` error instead of acting, and tools above the active tier return a `MODE_RESTRICTED` error.
+
+### Capability modes
+
+`PIPEDRIVE_MODE` sets a server-enforced safety tier. The tier is enforced two ways: out-of-mode tools are filtered out of `tools/list` (so the agent never sees them) and the dispatcher refuses any out-of-mode call by name before its handler runs, so the tier is a real guarantee rather than a UI hint.
+
+| Mode | What's available | Tools | Destructive ops |
+|------|------------------|------:|-----------------|
+| `read-only` | read verbs only (`list`/`get`/`search`) | 69 | no |
+| `safe-write` | reads + non-destructive writes | 124 | no |
+| `full` | all tools | 155 | yes |
+
+**Recommended for first-time setup and agent evaluation: `read-only`.** Let the agent look before it can touch anything, then widen the tier as you build trust.
+
+**Backward compatibility.** `PIPEDRIVE_MODE` is authoritative when set. When it is unset, the mode is derived from the legacy `PIPEDRIVE_ENABLE_DESTRUCTIVE` flag (`true` → `full`, otherwise `safe-write`), so existing installs keep their *execution* behavior on upgrade: every tool that ran before still runs, and every tool gated before is still gated. The one observable change at the unset default (`safe-write`) is that the 31 destructive tools — already refused at execution unless enabled — are now also hidden from `tools/list` rather than listed-then-refused (so the listed surface is 124, not 155). An unrecognized `PIPEDRIVE_MODE` value falls back to `read-only`.
 
 ### 3. Start Using
 
@@ -90,7 +105,7 @@ Once configured, Claude can access your Pipedrive data:
 
 <!-- BEGIN GENERATED TOOLS -->
 
-**155 tools.** 🔒 destructive (gated by `PIPEDRIVE_ENABLE_DESTRUCTIVE=true`, off by default) · ⭑ requires a Growth+ plan.
+**155 tools.** 🔒 destructive (require `PIPEDRIVE_MODE=full`, off by default) · ⭑ requires a Growth+ plan. The active [capability mode](#capability-modes) governs which tools are listed.
 
 <sub>This section is generated by `npm run gen:docs` from the live tool registry. Do not edit by hand - CI fails on drift.</sub>
 
@@ -122,7 +137,7 @@ Once configured, Claude can access your Pipedrive data:
 | `pipedrive_update_deal_installment` ⭑ | Update an installment on a deal. Growth+ plan required; all body fields optional. |
 | `pipedrive_delete_deal_installment` 🔒 ⭑ | Delete an installment from a deal. Growth+ plan required. |
 | `pipedrive_list_archived_deals` | List archived deals with the same filtering as the active deals list (owner, person, organization, pipeline, stage, status). Returns paginated results. |
-| `pipedrive_convert_deal_to_lead` 🔒 | Convert a deal to a lead (async job). DESTRUCTIVE: a successful conversion marks the source deal as deleted. Returns a conversion_id; the conversion runs asynchronously, so you MUST poll pipedrive_get_deal_conversion_status with the conversion_id until a terminal status. Requires PIPEDRIVE_ENABLE_DESTRUCTIVE=true. |
+| `pipedrive_convert_deal_to_lead` 🔒 | Convert a deal to a lead (async job). DESTRUCTIVE: a successful conversion marks the source deal as deleted. Returns a conversion_id; the conversion runs asynchronously, so you MUST poll pipedrive_get_deal_conversion_status with the conversion_id until a terminal status. Requires PIPEDRIVE_MODE=full (back-compat: PIPEDRIVE_ENABLE_DESTRUCTIVE=true). |
 | `pipedrive_get_deal_conversion_status` | Get the status of a deal-to-lead conversion job. Status contract: 'completed' (terminal, carries lead_id), 'failed'/'rejected' (terminal, stop polling, no lead produced), 'not_started'/'running' (in-progress, re-poll). Only 'completed' carries lead_id, and conversion status is purged after a few days, so a 404 returned after a prior valid status means the status was purged (terminal stop-polling signal, not a transient error). Use a bounded poll budget (e.g. up to ~6 attempts with short backoff), not an unbounded loop. |
 
 ### Persons
@@ -186,7 +201,7 @@ Once configured, Claude can access your Pipedrive data:
 | `pipedrive_create_lead` | Create a new lead in Pipedrive. Title is required; link to at least one of person_id or organization_id. |
 | `pipedrive_update_lead` | Update an existing lead in Pipedrive. |
 | `pipedrive_search_leads` | Search for leads in Pipedrive by title or associated contacts. |
-| `pipedrive_delete_lead` 🔒 | Delete a lead. Requires PIPEDRIVE_ENABLE_DESTRUCTIVE=true environment variable. |
+| `pipedrive_delete_lead` 🔒 | Delete a lead. Requires PIPEDRIVE_MODE=full (back-compat: PIPEDRIVE_ENABLE_DESTRUCTIVE=true). |
 | `pipedrive_convert_lead_to_deal` | Convert a lead into a deal (Pipedrive v2). The conversion runs asynchronously; this tool polls until it completes (typically under 5s) and returns the new deal ID. If it is still running after ~30s, it returns the conversion_id and status for manual follow-up. |
 | `pipedrive_get_lead_conversion_status` | Get the status of an async lead-to-deal conversion by conversion ID (Pipedrive v2 GET /leads/{id}/convert/status/{conversion_id}). |
 
@@ -198,7 +213,7 @@ Once configured, Claude can access your Pipedrive data:
 | `pipedrive_get_project` | Get detailed information about a specific project by ID. (Requires the Projects add-on; Projects API is in public beta.) |
 | `pipedrive_create_project` | Create a new project in Pipedrive. Requires title, board_id, and phase_id. (Requires the Projects add-on; Projects API is in public beta.) |
 | `pipedrive_update_project` | Update an existing project in Pipedrive. (Requires the Projects add-on; Projects API is in public beta.) |
-| `pipedrive_delete_project` 🔒 | Delete a project. Requires PIPEDRIVE_ENABLE_DESTRUCTIVE=true environment variable. (Requires the Projects add-on; Projects API is in public beta.) |
+| `pipedrive_delete_project` 🔒 | Delete a project. Requires PIPEDRIVE_MODE=full (back-compat: PIPEDRIVE_ENABLE_DESTRUCTIVE=true). (Requires the Projects add-on; Projects API is in public beta.) |
 | `pipedrive_search_projects` | Search for projects in Pipedrive by title. (Requires the Projects add-on; Projects API is in public beta.) |
 | `pipedrive_archive_project` | Archive a project by setting its status to archived. (Requires the Projects add-on; Projects API is in public beta.) |
 | `pipedrive_list_project_tasks` | List tasks for a project you already have the ID for — pass only `id` (the project ID). For broader task queries use pipedrive_list_tasks. (Projects add-on; Projects API in public beta.) |
@@ -239,7 +254,7 @@ Once configured, Claude can access your Pipedrive data:
 | `pipedrive_get_task` | Get detailed information about a specific task by ID. (Projects add-on; Projects API in public beta.) |
 | `pipedrive_create_task` | Create a new task in a project. title and project_id are required. Use boolean is_done/is_milestone (same field names as the GET response); a milestone task must have a due_date. (Projects add-on; Projects API in public beta.) |
 | `pipedrive_update_task` | Update an existing task. Only id is required; all other fields are optional. Use boolean is_done/is_milestone (same field names as the GET response); a milestone task must have a due_date. (Projects add-on; Projects API in public beta.) |
-| `pipedrive_delete_task` 🔒 | Delete a task. If the task has subtasks, those will also be deleted. Requires PIPEDRIVE_ENABLE_DESTRUCTIVE=true. (Projects add-on; Projects API in public beta.) |
+| `pipedrive_delete_task` 🔒 | Delete a task. If the task has subtasks, those will also be deleted. Requires PIPEDRIVE_MODE=full (back-compat: PIPEDRIVE_ENABLE_DESTRUCTIVE=true). (Projects add-on; Projects API in public beta.) |
 
 ### Boards & Phases
 
@@ -249,12 +264,12 @@ Once configured, Claude can access your Pipedrive data:
 | `pipedrive_get_board` | Get detailed information about a specific project board by ID. (Projects add-on; Projects API in public beta.) |
 | `pipedrive_create_board` | Create a new project board. name is required. (Projects add-on; Projects API in public beta.) |
 | `pipedrive_update_board` | Update an existing project board. Only id is required; all other fields are optional. (Projects add-on; Projects API in public beta.) |
-| `pipedrive_delete_board` 🔒 | Delete a project board. Requires PIPEDRIVE_ENABLE_DESTRUCTIVE=true. (Projects add-on; Projects API in public beta.) |
+| `pipedrive_delete_board` 🔒 | Delete a project board. Requires PIPEDRIVE_MODE=full (back-compat: PIPEDRIVE_ENABLE_DESTRUCTIVE=true). (Projects add-on; Projects API in public beta.) |
 | `pipedrive_list_phases` | List all phases for a project board. board_id is required. Returns the complete list (no pagination — the phases endpoint returns all records for a board at once). (Projects add-on; Projects API in public beta.) |
 | `pipedrive_get_phase` | Get detailed information about a specific project phase by ID. (Projects add-on; Projects API in public beta.) |
 | `pipedrive_create_phase` | Create a new project phase. name and board_id are required. (Projects add-on; Projects API in public beta.) |
 | `pipedrive_update_phase` | Update an existing project phase. Only id is required; all other fields are optional. Set board_id to move this phase to a different board. (Projects add-on; Projects API in public beta.) |
-| `pipedrive_delete_phase` 🔒 | Delete a project phase. Requires PIPEDRIVE_ENABLE_DESTRUCTIVE=true. (Projects add-on; Projects API in public beta.) |
+| `pipedrive_delete_phase` 🔒 | Delete a project phase. Requires PIPEDRIVE_MODE=full (back-compat: PIPEDRIVE_ENABLE_DESTRUCTIVE=true). (Projects add-on; Projects API in public beta.) |
 
 ### Mail
 
@@ -278,24 +293,24 @@ Once configured, Claude can access your Pipedrive data:
 | `pipedrive_get_field` | Get details of a specific field by its key. Useful for looking up what a 40-character hash field key means. |
 | `pipedrive_create_deal_field` | Create a deal custom field. field_name and field_type are required. For enum/set types, options is required. The response data.field_code is the 40-char hash you must keep to update or delete the field later. |
 | `pipedrive_update_deal_field` | Update a deal custom field by field_code. field_type and field_code cannot be changed. |
-| `pipedrive_delete_deal_field` 🔒 | Delete a deal custom field by field_code. Requires PIPEDRIVE_ENABLE_DESTRUCTIVE=true. |
+| `pipedrive_delete_deal_field` 🔒 | Delete a deal custom field by field_code. Requires PIPEDRIVE_MODE=full (back-compat: PIPEDRIVE_ENABLE_DESTRUCTIVE=true). |
 | `pipedrive_update_deal_field_options` | Bulk-update option labels of a deal enum/set field. Atomic: the whole request fails if any option ID does not exist. |
-| `pipedrive_delete_deal_field_options` 🔒 | Bulk-delete options of a deal enum/set field. Atomic: fails if any ID does not exist. Requires PIPEDRIVE_ENABLE_DESTRUCTIVE=true. |
+| `pipedrive_delete_deal_field_options` 🔒 | Bulk-delete options of a deal enum/set field. Atomic: fails if any ID does not exist. Requires PIPEDRIVE_MODE=full (back-compat: PIPEDRIVE_ENABLE_DESTRUCTIVE=true). |
 | `pipedrive_create_person_field` | Create a person custom field. field_name and field_type are required. For enum/set types, options is required. The response data.field_code is the 40-char hash to keep for later updates. |
 | `pipedrive_update_person_field` | Update a person custom field by field_code. field_type and field_code cannot be changed. |
-| `pipedrive_delete_person_field` 🔒 | Delete a person custom field by field_code. Requires PIPEDRIVE_ENABLE_DESTRUCTIVE=true. |
+| `pipedrive_delete_person_field` 🔒 | Delete a person custom field by field_code. Requires PIPEDRIVE_MODE=full (back-compat: PIPEDRIVE_ENABLE_DESTRUCTIVE=true). |
 | `pipedrive_update_person_field_options` | Bulk-update option labels of a person enum/set field. Atomic: the whole request fails if any option ID does not exist. |
-| `pipedrive_delete_person_field_options` 🔒 | Bulk-delete options of a person enum/set field. Atomic: fails if any ID does not exist. Requires PIPEDRIVE_ENABLE_DESTRUCTIVE=true. |
+| `pipedrive_delete_person_field_options` 🔒 | Bulk-delete options of a person enum/set field. Atomic: fails if any ID does not exist. Requires PIPEDRIVE_MODE=full (back-compat: PIPEDRIVE_ENABLE_DESTRUCTIVE=true). |
 | `pipedrive_create_organization_field` | Create an organization custom field. field_name and field_type are required. For enum/set types, options is required. The response data.field_code is the 40-char hash to keep for later updates. |
 | `pipedrive_update_organization_field` | Update an organization custom field by field_code. field_type and field_code cannot be changed. |
-| `pipedrive_delete_organization_field` 🔒 | Delete an organization custom field by field_code. Requires PIPEDRIVE_ENABLE_DESTRUCTIVE=true. |
+| `pipedrive_delete_organization_field` 🔒 | Delete an organization custom field by field_code. Requires PIPEDRIVE_MODE=full (back-compat: PIPEDRIVE_ENABLE_DESTRUCTIVE=true). |
 | `pipedrive_update_organization_field_options` | Bulk-update option labels of an organization enum/set field. Atomic: the whole request fails if any option ID does not exist. |
-| `pipedrive_delete_organization_field_options` 🔒 | Bulk-delete options of an organization enum/set field. Atomic: fails if any ID does not exist. Requires PIPEDRIVE_ENABLE_DESTRUCTIVE=true. |
+| `pipedrive_delete_organization_field_options` 🔒 | Bulk-delete options of an organization enum/set field. Atomic: fails if any ID does not exist. Requires PIPEDRIVE_MODE=full (back-compat: PIPEDRIVE_ENABLE_DESTRUCTIVE=true). |
 | `pipedrive_create_product_field` | Create a product custom field. field_name and field_type are required. For enum/set types, options is required. Product fields use a simpler model: no description, important_fields, or required_fields. The response data.field_code is the 40-char hash to keep for later updates. |
 | `pipedrive_update_product_field` | Update a product custom field by field_code. Only field_name and ui_visibility can be changed (product fields have no description/important_fields/required_fields). |
-| `pipedrive_delete_product_field` 🔒 | Delete a product custom field by field_code. Requires PIPEDRIVE_ENABLE_DESTRUCTIVE=true. |
+| `pipedrive_delete_product_field` 🔒 | Delete a product custom field by field_code. Requires PIPEDRIVE_MODE=full (back-compat: PIPEDRIVE_ENABLE_DESTRUCTIVE=true). |
 | `pipedrive_update_product_field_options` | Bulk-update option labels of a product enum/set field. Atomic: the whole request fails if any option ID does not exist. |
-| `pipedrive_delete_product_field_options` 🔒 | Bulk-delete options of a product enum/set field. Atomic: fails if any ID does not exist. Requires PIPEDRIVE_ENABLE_DESTRUCTIVE=true. |
+| `pipedrive_delete_product_field_options` 🔒 | Bulk-delete options of a product enum/set field. Atomic: fails if any ID does not exist. Requires PIPEDRIVE_MODE=full (back-compat: PIPEDRIVE_ENABLE_DESTRUCTIVE=true). |
 
 ### Pipelines & Stages
 
@@ -306,10 +321,10 @@ Once configured, Claude can access your Pipedrive data:
 | `pipedrive_get_stage` | Get details of a specific stage by ID. |
 | `pipedrive_create_pipeline` | Create a new sales pipeline. Only name is required. Set is_deal_probability_enabled to turn on weighted deal probability for the pipeline. |
 | `pipedrive_update_pipeline` | Update an existing pipeline. Provide the pipeline id and any fields to change. |
-| `pipedrive_delete_pipeline` 🔒 | Delete a pipeline. Marks the pipeline as deleted. Requires PIPEDRIVE_ENABLE_DESTRUCTIVE=true. |
+| `pipedrive_delete_pipeline` 🔒 | Delete a pipeline. Marks the pipeline as deleted. Requires PIPEDRIVE_MODE=full (back-compat: PIPEDRIVE_ENABLE_DESTRUCTIVE=true). |
 | `pipedrive_create_stage` | Create a new stage in a pipeline. name and pipeline_id are required. Use is_deal_rot_enabled and days_to_rotten to configure deal rotting. |
 | `pipedrive_update_stage` | Update an existing stage. Provide the stage id and any fields to change. Set pipeline_id to move the stage to another pipeline. |
-| `pipedrive_delete_stage` 🔒 | Delete a stage. Marks the stage as deleted. Requires PIPEDRIVE_ENABLE_DESTRUCTIVE=true. |
+| `pipedrive_delete_stage` 🔒 | Delete a stage. Marks the stage as deleted. Requires PIPEDRIVE_MODE=full (back-compat: PIPEDRIVE_ENABLE_DESTRUCTIVE=true). |
 
 ### Users
 
