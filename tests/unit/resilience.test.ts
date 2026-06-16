@@ -15,6 +15,9 @@ import {
   recordOutcome,
   getBreakerState,
   resetCircuitBreakerState,
+  monotonicNowMs,
+  setMonotonicClockForTests,
+  resetMonotonicClockForTests,
   circuitOpenError,
   BACKOFF_BASE_MS,
   BACKOFF_CAP_MS,
@@ -371,6 +374,32 @@ describe('circuit breaker (U2, KTD7)', () => {
     // Window cleared: a fresh THRESHOLD-1 burst stays Closed (no carryover count).
     for (let i = 0; i < BREAKER_THRESHOLD - 1; i++) recordOutcome(trip, T0);
     expect(getBreakerState()).toBe('Closed');
+  });
+});
+
+describe('monotonic clock seam (U2, #133)', () => {
+  it('default monotonicNowMs() is finite and non-decreasing across calls', () => {
+    const a = monotonicNowMs();
+    const b = monotonicNowMs();
+    expect(Number.isFinite(a)).toBe(true);
+    expect(b).toBeGreaterThanOrEqual(a);
+  });
+
+  it('setMonotonicClockForTests overrides the source; reset restores the real clock', () => {
+    // Capture the real clock before overriding so the reset assertion compares against an
+    // actual reading rather than a magic constant tied to process uptime.
+    const beforeOverride = monotonicNowMs();
+
+    setMonotonicClockForTests(() => 42);
+    expect(monotonicNowMs()).toBe(42);
+    expect(monotonicNowMs()).toBe(42); // pinned, not advancing
+
+    resetMonotonicClockForTests();
+    // Back to the real performance.now()-backed source: no longer pinned to 42, and
+    // non-decreasing relative to the pre-override reading (monotonic).
+    const afterReset = monotonicNowMs();
+    expect(afterReset).not.toBe(42);
+    expect(afterReset).toBeGreaterThanOrEqual(beforeOverride);
   });
 });
 

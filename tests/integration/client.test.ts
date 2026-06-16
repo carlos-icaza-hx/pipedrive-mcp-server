@@ -8,6 +8,7 @@ import { leadsV1 } from '../../src/version-routing.js';
 import {
   getBreakerState,
   setResilienceSleepForTests,
+  setMonotonicClockForTests,
   RETRY_MAX_ATTEMPTS,
   RETRY_BUDGET_MS,
   RETRY_AFTER_CAP_MS,
@@ -724,31 +725,43 @@ describe('resilience: retry + circuit breaker (U3)', () => {
     });
 
     it('debits retry-attempt durations against the budget (slow timeouts stop the loop before the attempt cap)', async () => {
-      // Regression guard for the KTD3 added-wall-clock bound. The rest of the suite
+      // Regression guard for the KTD3 added-elapsed-time bound. The rest of the suite
       // uses instant mocks, so the per-attempt-duration debit is never exercised and
       // a deletion of it would go unnoticed. Here each attempt "consumes" ~28s of
-      // (faked) wall-clock, so the ~30s budget is spent after a single retry and the
-      // loop bails BEFORE reaching the 4-attempt cap. Without the duration debit the
-      // loop would run the full RETRY_MAX_ATTEMPTS attempts instead.
-      vi.useFakeTimers();
-      try {
-        const base = Date.now();
-        let now = base;
-        const mockFn = vi.fn(async () => {
-          now += 28_000; // simulate a slow attempt that ends in a timeout
-          vi.setSystemTime(now);
-          throw new Error('Request timeout');
-        });
-        vi.stubGlobal('fetch', mockFn);
-        const client = new PipedriveClient();
+      // (controlled monotonic) time, so the ~60s budget is spent after a few retries and
+      // the loop bails BEFORE reaching the 4-attempt cap. The budget keys on the monotonic
+      // clock (#133), so drive that seam directly rather than vi.setSystemTime.
+      let mono = 0;
+      setMonotonicClockForTests(() => mono);
+      const mockFn = vi.fn(async () => {
+        mono += 28_000; // simulate a slow attempt that ends in a timeout
+        throw new Error('Request timeout');
+      });
+      vi.stubGlobal('fetch', mockFn);
+      const client = new PipedriveClient();
 
-        const response = await client.get('/deals', undefined, 'v2');
+      const response = await client.get('/deals', undefined, 'v2');
 
-        expect(response.error?.code).toBe('NETWORK_ERROR');
-        expect(mockFn.mock.calls.length).toBeLessThan(RETRY_MAX_ATTEMPTS);
-      } finally {
-        vi.useRealTimers();
-      }
+      expect(response.error?.code).toBe('NETWORK_ERROR');
+      expect(mockFn.mock.calls.length).toBeLessThan(RETRY_MAX_ATTEMPTS);
+    });
+
+    it('a forward Date.now jump mid-loop does not curtail the retry budget (now monotonic, #133)', async () => {
+      // The budget/timeout math keys on the monotonic clock (#133), so a hostile wall-clock
+      // jump must not prematurely exhaust it. Pin the monotonic clock (plenty of budget) and
+      // jump Date.now far past the budget: all RETRY_MAX_ATTEMPTS still run. Under the old
+      // wall-clock budget the jump would drive remainingTotalMs negative and bail early.
+      setMonotonicClockForTests(() => 0);
+      const base = Date.now();
+      vi.spyOn(Date, 'now').mockReturnValue(base + 100 * RETRY_BUDGET_MS);
+
+      const mockFn = mockApiError(429, 'rate'); // all-429 read retries up to the attempt cap
+      const client = new PipedriveClient();
+
+      const response = await client.get('/deals', undefined, 'v2');
+
+      expect(response.error?.code).toBe('RATE_LIMITED');
+      expect(mockFn).toHaveBeenCalledTimes(RETRY_MAX_ATTEMPTS); // not curtailed by the wall-clock jump
     });
   });
 
@@ -801,44 +814,40 @@ describe('resilience: retry + circuit breaker (U3)', () => {
     });
 
     it('half-open probe issues exactly one upstream request for a retryable read 500 (internal retry disabled)', async () => {
-      vi.useFakeTimers();
-      try {
-        mockApiError(503, 'unavailable');
-        const client = new PipedriveClient();
-        for (let i = 0; i < 5; i++) await client.post('/deals', { title: 'x' }, 'v2');
-        expect(getBreakerState()).toBe('Open');
+      // The cooldown is driven by the monotonic clock (#133), so advance that seam — not
+      // vi.setSystemTime, which moves only the wall-clock the breaker no longer reads.
+      let clock = 0;
+      setMonotonicClockForTests(() => clock);
+      mockApiError(503, 'unavailable');
+      const client = new PipedriveClient();
+      for (let i = 0; i < 5; i++) await client.post('/deals', { title: 'x' }, 'v2');
+      expect(getBreakerState()).toBe('Open');
 
-        // Cooldown elapses -> the next call becomes the single half-open probe.
-        vi.setSystemTime(Date.now() + BREAKER_COOLDOWN_MS + 1);
-        const probeMock = mockApiError(500, 'boom'); // a read 500 is normally retried...
+      // Cooldown elapses (monotonic) -> the next call becomes the single half-open probe.
+      clock = BREAKER_COOLDOWN_MS + 1;
+      const probeMock = mockApiError(500, 'boom'); // a read 500 is normally retried...
 
-        const response = await client.get('/deals', undefined, 'v2');
+      const response = await client.get('/deals', undefined, 'v2');
 
-        expect(response.success).toBe(false);
-        expect(probeMock).toHaveBeenCalledTimes(1); // ...but the probe runs once, no retry
-        expect(getBreakerState()).toBe('Open'); // a non-success probe reopens the breaker
-      } finally {
-        vi.useRealTimers();
-      }
+      expect(response.success).toBe(false);
+      expect(probeMock).toHaveBeenCalledTimes(1); // ...but the probe runs once, no retry
+      expect(getBreakerState()).toBe('Open'); // a non-success probe reopens the breaker
     });
 
     it('AE1 ∩ probe: a half-open probe that is a write hitting a network error does not retry and reopens', async () => {
-      vi.useFakeTimers();
-      try {
-        mockApiError(503, 'unavailable');
-        const client = new PipedriveClient();
-        for (let i = 0; i < 5; i++) await client.post('/deals', { title: 'x' }, 'v2');
-        vi.setSystemTime(Date.now() + BREAKER_COOLDOWN_MS + 1);
-        const probeMock = mockFetchNetworkError('Connection refused');
+      let clock = 0;
+      setMonotonicClockForTests(() => clock);
+      mockApiError(503, 'unavailable');
+      const client = new PipedriveClient();
+      for (let i = 0; i < 5; i++) await client.post('/deals', { title: 'x' }, 'v2');
+      clock = BREAKER_COOLDOWN_MS + 1; // cooldown elapses on the monotonic clock (#133)
+      const probeMock = mockFetchNetworkError('Connection refused');
 
-        const response = await client.post('/deals', { title: 'x' }, 'v2');
+      const response = await client.post('/deals', { title: 'x' }, 'v2');
 
-        expect(response.error?.code).toBe('NETWORK_ERROR');
-        expect(probeMock).toHaveBeenCalledTimes(1); // write never re-sent (AE1)
-        expect(getBreakerState()).toBe('Open'); // probe failure reopens
-      } finally {
-        vi.useRealTimers();
-      }
+      expect(response.error?.code).toBe('NETWORK_ERROR');
+      expect(probeMock).toHaveBeenCalledTimes(1); // write never re-sent (AE1)
+      expect(getBreakerState()).toBe('Open'); // probe failure reopens
     });
 
     it('#123: concurrent interleaved 429/503 load opens the breaker reliably despite an interleaved success', async () => {
