@@ -12,6 +12,7 @@
  * Environment:
  *   PIPEDRIVE_API_KEY - Your Pipedrive API key (required)
  */
+export function registrarHerramientasPipedrive(server: any) {
 
 import "dotenv/config";
 
@@ -279,4 +280,5 @@ if (isEntrypoint()) {
       console.error(`[${SERVER_NAME}] Fatal error: ${safeMessage}`);
       process.exit(1);
     });
+}
 }
